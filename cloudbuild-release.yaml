@@ -12,7 +12,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: [ 'push', 'ghcr.io/sinmetalcraft/gcptoolbox:$TAG_NAME' ]
 secrets:
-  - kmsKeyName: projects/sinmetal-ci/locations/asia-northeast1/keyRings/github/cryptoKeys/pat
+  - kmsKeyName: projects/sinmetalcraft-registry/locations/asia-northeast1/keyRings/github/cryptoKeys/pat
     secretEnv:
-      GITHUBPAT: 'CiQAjU7G+Sl8aehSQTEbrgR+WZLXhU5cbQH2Jwybtl7XU9L6/agSUQBZ1eJPIOLXQjQjC/a9wdKOLy/t7ykMbqQ+3aWInOi+u+BHJCGKCY/oCp9+7ji5n0N1aEkGkk4iqCK21mapyHbcUW01jQ5S86kkP86d/CK4jA=='
+      GITHUBPAT: 'CiQAU/nTGGd+W1EOmarY04nwaKQdtTFuw866IqDSfa8KMBWt0q4SUQAzaPkGi4fsFBTv0NKgBtGVm1k3Bz026Sm+pVIRg54p10NpkghG84tceKLk/qNB2VtBDlGZN2PzmVW3zRxrJSrwEs51YWGnVHr3CCzV7DMxWw=='
 images: ['gcr.io/$PROJECT_ID/gcptoolbox:$TAG_NAME']
