@@ -3,15 +3,8 @@ steps:
     entrypoint: 'go'
     args: ['build', '.']
     env: ['GO111MODULE=on']
-  - name: 'gcr.io/cloud-builders/docker'
-    entrypoint: 'bash'
-    args: [ '-c', 'docker login ghcr.io --username=sinmetal --password=$$GITHUBPAT' ]
-    secretEnv: ['GITHUBPAT']
-  - name: 'gcr.io/cloud-builders/docker'
-    args: [ 'build', '-t', 'ghcr.io/sinmetal/gcptoolbox:v0.0.0', '.' ]
-  - name: 'gcr.io/cloud-builders/docker'
-    args: [ 'push', 'ghcr.io/sinmetal/gcptoolbox:v0.0.0' ]
-secrets:
-  - kmsKeyName: projects/sinmetal-ci/locations/asia-northeast1/keyRings/github/cryptoKeys/pat
-    secretEnv:
-      GITHUBPAT: 'CiQAjU7G+Sl8aehSQTEbrgR+WZLXhU5cbQH2Jwybtl7XU9L6/agSUQBZ1eJPIOLXQjQjC/a9wdKOLy/t7ykMbqQ+3aWInOi+u+BHJCGKCY/oCp9+7ji5n0N1aEkGkk4iqCK21mapyHbcUW01jQ5S86kkP86d/CK4jA=='
+  - name: 'gcr.io/kaniko-project/executor:v1.2.0'
+    args:
+      - --destination=gcr.io/$PROJECT_ID/gcptoolbox/$BRANCH_NAME:$COMMIT_SHA
+      - --cache=true
+      - --cache-ttl=6h

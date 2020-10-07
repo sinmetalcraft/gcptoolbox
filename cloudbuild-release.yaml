@@ -1,0 +1,18 @@
+steps:
+  - name: 'golang:1.15'
+    entrypoint: 'go'
+    args: ['build', '.']
+    env: ['GO111MODULE=on']
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: [ '-c', 'docker login ghcr.io --username=sinmetal --password=$$GITHUBPAT' ]
+    secretEnv: ['GITHUBPAT']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [ 'build', '-t', 'ghcr.io/sinmetalcraft/gcptoolbox:$TAG_NAME', '.' ]
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [ 'push', 'ghcr.io/sinmetalcraft/gcptoolbox:$TAG_NAME' ]
+secrets:
+  - kmsKeyName: projects/sinmetal-ci/locations/asia-northeast1/keyRings/github/cryptoKeys/pat
+    secretEnv:
+      GITHUBPAT: 'CiQAjU7G+Sl8aehSQTEbrgR+WZLXhU5cbQH2Jwybtl7XU9L6/agSUQBZ1eJPIOLXQjQjC/a9wdKOLy/t7ykMbqQ+3aWInOi+u+BHJCGKCY/oCp9+7ji5n0N1aEkGkk4iqCK21mapyHbcUW01jQ5S86kkP86d/CK4jA=='
+images: ['gcr.io/$PROJECT_ID/gcptoolbox:$TAG_NAME']
