@@ -4,7 +4,8 @@ steps:
     args: ['build', '.']
     env: ['GO111MODULE=on']
   - name: 'gcr.io/cloud-builders/docker'
-    args: [ 'login', 'ghcr.io', '-u', 'sinmetal', '-p', '$$GITHUBPAT' ]
+    entrypoint: 'bash'
+    args: [ '-c', 'docker login ghcr.io --username=sinmetal --password=$$GITHUBPAT' ]
     secretEnv: ['GITHUBPAT']
   - name: 'gcr.io/cloud-builders/docker'
     args: [ 'build', '-t', 'ghcr.io/sinmetal/gcptoolbox:v0.0.0', '.' ]
