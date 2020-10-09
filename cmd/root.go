@@ -8,9 +8,20 @@ import (
 
 // RootCmd is root command
 var RootCmd = &cobra.Command{
-	Use:   "culc",
-	Short: "command line calculator",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("root command")
+	Use:   "gcptoolbox",
+	Short: "command line gcptoolbox",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return fmt.Errorf("Command name argument expected.")
 	},
+}
+
+func init() {
+	cobra.OnInitialize()
+	ServiceUsageCmd.AddCommand(
+		serviceUsageDiffCmd(),
+	)
+
+	RootCmd.AddCommand(
+		ServiceUsageCmd,
+	)
 }
