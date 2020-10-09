@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sinmetal/gcptoolbox/cmd"
+	"github.com/sinmetalcraft/gcptoolbox/cmd"
 )
 
 func main() {

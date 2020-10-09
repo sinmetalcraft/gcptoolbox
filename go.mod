@@ -1,4 +1,4 @@
-module github.com/sinmetal/gcptoolbox
+module github.com/sinmetalcraft/gcptoolbox
 
 go 1.14
 
