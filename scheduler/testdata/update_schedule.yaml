@@ -1,0 +1,71 @@
+- jobname:
+    projectid: sinmetal-ci
+    location: asia-northeast1
+    jobid: gae_get
+  description: required update job
+  schedule: 0 9 * * 1
+  timezone: Asia/Tokyo
+  appenginehttptarget:
+    httpmethod: GET
+    appenginerouting:
+      service: gcpbox
+      version: 20201022t171325
+      instance: ""
+      host: 20201022t171325.gcpbox.sinmetal-ci.an.r.appspot.com
+    relativeuri: /?hello=world
+    headers:
+      User-Agent: AppEngine-Google; (+http://code.google.com/appengine)
+- jobname:
+    projectid: sinmetal-ci
+    location: asia-northeast1
+    jobid: gae_post
+  description: App Engine POST
+  schedule: 0 9 * * 1
+  timezone: Asia/Tokyo
+  appenginehttptarget:
+    httpmethod: POST
+    appenginerouting:
+      service: echo
+      version: ""
+      instance: ""
+      host: echo.sinmetal-ci.an.r.appspot.com
+    relativeuri: /echo
+    headers:
+      Content-Length: "11"
+      Content-Type: application/octet-stream
+      User-Agent: AppEngine-Google; (+http://code.google.com/appengine)
+    body: free=target
+- jobname:
+    projectid: sinmetal-ci
+    location: asia-northeast1
+    jobid: http_target_get
+  description: HTTP Target GET
+  schedule: 0 9 * * 1
+  timezone: Asia/Tokyo
+  attemptdeadline: 3m0s
+  httptarget:
+    uri: https://sinmetal-ci.an.r.appspot.com/?hoge=fuga
+    httpmethod: GET
+    headers:
+      User-Agent: Google-Cloud-Scheduler
+    oidctoken:
+      serviceaccountemail: scheduler-worker@sinmetal-ci.iam.gserviceaccount.com
+      audience: https://sinmetal-ci.an.r.appspot.com/
+- jobname:
+    projectid: sinmetal-ci
+    location: asia-northeast1
+    jobid: http_target_sample
+  description: HTTP Target POST
+  schedule: 0 9 * * 1
+  timezone: Asia/Tokyo
+  attemptdeadline: 3m0s
+  httptarget:
+    uri: https://sinmetal-ci.an.r.appspot.com/
+    httpmethod: POST
+    headers:
+      Content-Type: application/octet-stream
+      User-Agent: Google-Cloud-Scheduler
+    body: "{\"Hello\":\"World\"}"
+    oidctoken:
+      serviceaccountemail: scheduler-worker@sinmetal-ci.iam.gserviceaccount.com
+      audience: https://sinmetal-ci.an.r.appspot.com/
