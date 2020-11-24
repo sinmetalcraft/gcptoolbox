@@ -47,7 +47,7 @@ func TestDuration_UnmarshalYAML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if e, g := 3*time.Second, v.Deadline.t; e != g {
+	if e, g := 3*time.Second, v.Deadline.Dur; e != g {
 		t.Errorf("want \"%v\" but got \"%v\"", e, g)
 	}
 }

@@ -2,8 +2,9 @@ package scheduler
 
 import "time"
 
+// Duration is yaml に time.Duration.String() の値を出力するための Wrapper
 type Duration struct {
-	t time.Duration
+	Dur time.Duration
 }
 
 func (d *Duration) MarshalYAML() ([]byte, error) {
@@ -11,7 +12,7 @@ func (d *Duration) MarshalYAML() ([]byte, error) {
 		return nil, nil
 	}
 
-	return []byte(d.t.String()), nil
+	return []byte(d.Dur.String()), nil
 }
 
 func (d *Duration) UnmarshalYAML(b []byte) error {
@@ -23,6 +24,6 @@ func (d *Duration) UnmarshalYAML(b []byte) error {
 	if err != nil {
 		return err
 	}
-	d.t = dur
+	d.Dur = dur
 	return nil
 }

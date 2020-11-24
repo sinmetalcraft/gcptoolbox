@@ -1,0 +1,17 @@
+- jobname:
+    projectid: sinmetal-ci
+    location: asia-northeast1
+    jobid: helloNewJob
+  description: required update job
+  schedule: 0 9 * * 1
+  timezone: Asia/Tokyo
+  appenginehttptarget:
+    httpmethod: GET
+    appenginerouting:
+      service: gcpbox
+      version: 20201022t171325
+      instance: ""
+      host: 20201022t171325.gcpbox.sinmetal-ci.an.r.appspot.com
+    relativeuri: /?hello=world
+    headers:
+      User-Agent: AppEngine-Google; (+http://code.google.com/appengine)

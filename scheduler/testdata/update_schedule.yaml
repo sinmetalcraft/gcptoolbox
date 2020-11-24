@@ -2,7 +2,7 @@
     projectid: sinmetal-ci
     location: asia-northeast1
     jobid: gae_get
-  description: App Engine GET
+  description: required update job
   schedule: 0 9 * * 1
   timezone: Asia/Tokyo
   appenginehttptarget:
@@ -42,7 +42,7 @@
   description: HTTP Target GET
   schedule: 0 9 * * 1
   timezone: Asia/Tokyo
-  attemptdeadline: 180000000000
+  attemptdeadline: 3m0s
   httptarget:
     uri: https://sinmetal-ci.an.r.appspot.com/?hoge=fuga
     httpmethod: GET
@@ -58,7 +58,7 @@
   description: HTTP Target POST
   schedule: 0 9 * * 1
   timezone: Asia/Tokyo
-  attemptdeadline: 180000000000
+  attemptdeadline: 3m0s
   httptarget:
     uri: https://sinmetal-ci.an.r.appspot.com/
     httpmethod: POST

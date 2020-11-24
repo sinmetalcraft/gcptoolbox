@@ -2,7 +2,7 @@ package scheduler_test
 
 import (
 	"context"
-	"fmt"
+	"path/filepath"
 	"testing"
 
 	sch "cloud.google.com/go/scheduler/apiv1"
@@ -24,11 +24,54 @@ func TestService_List(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bytes, err := yaml.Marshal(jobs)
+	_, err = yaml.Marshal(jobs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(string(bytes))
+}
+
+func TestService_CheckUpsertJobs(t *testing.T) {
+	ctx := context.Background()
+
+	s := newService(t)
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	cases := []struct {
+		name          string
+		fileName      string
+		wantInsertLen int
+		wantUpdateLen int
+	}{
+		{"change nothing", baseScheduleYaml, 0, 0},
+		{"insert", insertScheduleYaml, 1, 0},
+		{"update", updateScheduleYaml, 0, 1},
+	}
+
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			fn := filepath.Join("testdata", tt.fileName)
+			jobs, err := s.ReadYamlFile(ctx, fn)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			insertJobs, updateJobs, err := s.CheckUpsertJobs(ctx, jobs)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if e, g := tt.wantInsertLen, len(insertJobs); e != g {
+				t.Errorf("want insert len %d but got %d", e, g)
+			}
+			if e, g := tt.wantUpdateLen, len(updateJobs); e != g {
+				t.Errorf("want update len %d but got %d", e, g)
+			}
+		})
+	}
 }
 
 func newService(t *testing.T) *scheduler.Service {

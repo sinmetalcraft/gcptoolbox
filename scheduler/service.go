@@ -4,11 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	sch "cloud.google.com/go/scheduler/apiv1"
+	"github.com/goccy/go-yaml"
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/api/iterator"
 	proto "google.golang.org/genproto/googleapis/cloud/scheduler/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type Service struct {
@@ -23,6 +28,10 @@ type JobName struct {
 	ProjectID string
 	Location  string
 	JobID     string
+}
+
+func (jn *JobName) Name() string {
+	return fmt.Sprintf("projects/%s/locations/%s/jobs/%s", jn.ProjectID, jn.Location, jn.JobID)
 }
 
 func NameToJobName(jobName string) (*JobName, error) {
@@ -122,16 +131,6 @@ type OIDCToken struct {
 	Audience            string
 }
 
-type GetReq struct {
-	ProjectID string
-	Location  string
-	JobID     string
-}
-
-func (req *GetReq) Name() string {
-	return fmt.Sprintf("projects/%s/locations/%s/jobs/%s", req.ProjectID, req.Location, req.JobID)
-}
-
 func (s *Service) Close() error {
 	return s.client.Close()
 }
@@ -198,44 +197,11 @@ func (s *Service) List(ctx context.Context, project string, location string) ([]
 			} else if err != nil {
 				return nil, err
 			}
-			jobName, err := NameToJobName(job.GetName())
-			if err != nil {
-				return nil, err
-			}
-			boxJob := &Job{
-				JobName:     jobName,
-				Description: job.GetDescription(),
-				Schedule:    job.GetSchedule(),
-				TimeZone:    job.GetTimeZone(),
-				RetryConfig: ProtoToRetryConfig(job.GetRetryConfig()),
-			}
-			if job.GetAttemptDeadline() != nil {
-				boxJob.AttemptDeadline = &Duration{job.GetAttemptDeadline().AsDuration()}
-			}
 
-			ptj := job.GetPubsubTarget()
-			if ptj != nil {
-				var d interface{}
-				if err := json.Unmarshal(ptj.GetData(), &d); err != nil {
-					return nil, err
-				}
-				boxJob.PubSubTarget = &PubSubTarget{
-					TopicName:  ptj.GetTopicName(),
-					Data:       d,
-					Attributes: ptj.GetAttributes(),
-				}
-			}
-			aht, err := s.parseAppEngineHttpTarget(job.GetAppEngineHttpTarget())
+			boxJob, err := s.toBoxJob(job)
 			if err != nil {
 				return nil, err
 			}
-			boxJob.AppEngineHttpTarget = aht
-
-			ht, err := s.parseHttpTarget(job.GetHttpTarget())
-			if err != nil {
-				return nil, err
-			}
-			boxJob.HttpTarget = ht
 
 			boxJobs = append(boxJobs, boxJob)
 			pageToken = iter.PageInfo().Token
@@ -245,6 +211,49 @@ func (s *Service) List(ctx context.Context, project string, location string) ([]
 		}
 	}
 	return boxJobs, nil
+}
+
+func (s *Service) toBoxJob(job *proto.Job) (*Job, error) {
+	jobName, err := NameToJobName(job.GetName())
+	if err != nil {
+		return nil, err
+	}
+	boxJob := &Job{
+		JobName:     jobName,
+		Description: job.GetDescription(),
+		Schedule:    job.GetSchedule(),
+		TimeZone:    job.GetTimeZone(),
+		RetryConfig: ProtoToRetryConfig(job.GetRetryConfig()),
+	}
+	if job.GetAttemptDeadline() != nil {
+		boxJob.AttemptDeadline = &Duration{job.GetAttemptDeadline().AsDuration()}
+	}
+
+	ptj := job.GetPubsubTarget()
+	if ptj != nil {
+		var d interface{}
+		if err := json.Unmarshal(ptj.GetData(), &d); err != nil {
+			return nil, err
+		}
+		boxJob.PubSubTarget = &PubSubTarget{
+			TopicName:  ptj.GetTopicName(),
+			Data:       d,
+			Attributes: ptj.GetAttributes(),
+		}
+	}
+	aht, err := s.parseAppEngineHttpTarget(job.GetAppEngineHttpTarget())
+	if err != nil {
+		return nil, err
+	}
+	boxJob.AppEngineHttpTarget = aht
+
+	ht, err := s.parseHttpTarget(job.GetHttpTarget())
+	if err != nil {
+		return nil, err
+	}
+	boxJob.HttpTarget = ht
+
+	return boxJob, nil
 }
 
 func (s *Service) parseAppEngineHttpTarget(arg *proto.AppEngineHttpTarget) (*AppEngineHttpTarget, error) {
@@ -292,11 +301,53 @@ func (s *Service) parseHttpTarget(arg *proto.HttpTarget) (*HttpTarget, error) {
 	return ret, nil
 }
 
-//func (s *schedulerService) get(ctx context.Context, req *SchedulerGetReq) {
-//	job, err := s.client.GetJob(ctx, &sproto.GetJobRequest{
-//		Name: req.Name(),
-//	})
-//	if err != nil {
-//
-//	}
-//}
+func (s *Service) Get(ctx context.Context, jobName *JobName) (*Job, error) {
+	j, err := s.client.GetJob(ctx, &proto.GetJobRequest{Name: jobName.Name()})
+	if err != nil {
+		return nil, err
+	}
+	boxJob, err := s.toBoxJob(j)
+	if err != nil {
+		return nil, err
+	}
+	return boxJob, nil
+}
+
+// Diff is 渡された Jobs と GCP Project の Jobs を比較して、新たに追加する必要があるもの、更新する必要があるものを返す
+func (s *Service) CheckUpsertJobs(ctx context.Context, jobs []*Job) (insertJobs []*Job, updateJobs []*Job, err error) {
+	for _, job := range jobs {
+		got, err := s.Get(ctx, job.JobName)
+		sts, ok := status.FromError(err)
+		if ok && sts.Code() == codes.NotFound {
+			insertJobs = append(insertJobs, job)
+			continue
+		} else if err != nil {
+			return nil, nil, err
+		}
+		if !s.equal(ctx, job, got) {
+			updateJobs = append(updateJobs, job)
+		}
+	}
+	return
+}
+
+func (s *Service) equal(ctx context.Context, job1 *Job, job2 *Job) bool {
+	return cmp.Equal(job1, job2)
+}
+
+func (s *Service) ReadYamlFile(ctx context.Context, path string) ([]*Job, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			fmt.Printf("failed file close. path=%s : err=%#v", path, err)
+		}
+	}()
+	var jobs []*Job
+	if err := yaml.NewDecoder(file).Decode(&jobs); err != nil {
+		return nil, err
+	}
+	return jobs, nil
+}
