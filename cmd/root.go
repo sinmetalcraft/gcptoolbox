@@ -33,6 +33,7 @@ func init() {
 
 	BigQueryCmd.AddCommand(
 		bigQueryDeleteTablesCmd(),
+		bigQueryUpdateExpirationCmd(),
 	)
 
 	RootCmd.AddCommand(
