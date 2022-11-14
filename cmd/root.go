@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sinmetalcraft/gcptoolbox/cmd/bigquery"
 	"github.com/sinmetalcraft/gcptoolbox/cmd/bq2gcs"
 	"github.com/sinmetalcraft/gcptoolbox/cmd/contexter"
 	"github.com/spf13/cobra"
@@ -31,18 +32,14 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&projectID, "project", "project", "project id")
 	RootCmd.PersistentPreRunE = preRunE
 
+	// TODO これを新しい形に変更する
 	ServiceUsageCmd.AddCommand(
 		serviceUsageDiffCmd(),
 	)
 
-	BigQueryCmd.AddCommand(
-		bigQueryDeleteTablesCmd(),
-		bigQueryUpdateExpirationCmd(),
-	)
-
 	RootCmd.AddCommand(
 		ServiceUsageCmd,
-		BigQueryCmd,
+		bigquery.Command(),
 		bq2gcs.Command(),
 	)
 }
