@@ -29,6 +29,11 @@ func NewService(ctx context.Context, bq *bigquery.Client) (*Service, error) {
 
 // UpdateTablesExpirationFromDatasetDefaultSetting is DatasetのDefault Table ExpirationをTableにコピーする
 func (s *Service) UpdateTablesExpirationFromDatasetDefaultSetting(ctx context.Context, projectID string, dataset string, ops ...APIOptions) error {
+	opt := apiOptions{}
+	for _, o := range ops {
+		o(&opt)
+	}
+
 	ds := s.bq.DatasetInProject(projectID, dataset)
 	meta, err := ds.Metadata(ctx)
 	if err != nil {
@@ -70,7 +75,13 @@ func (s *Service) UpdateTablesExpirationFromDatasetDefaultSetting(ctx context.Co
 			}
 			return err
 		}
-		fmt.Printf("%s update expiration \n", t.TableID)
+		msg := fmt.Sprintf("%s update expiration \n", t.TableID)
+		if opt.dryRun {
+			fmt.Printf("DryRun: %s", msg)
+			continue
+		}
+		fmt.Print(msg)
+
 	}
 	return nil
 }
@@ -94,6 +105,9 @@ func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Con
 	// TimePartitioningの場合
 	// TODO すでに設定されている場合、上書きするかスルーするか
 	if meta.TimePartitioning != nil {
+		if opt.dryRun {
+			return nil
+		}
 		_, err := table.Update(ctx, bigquery.TableMetadataToUpdate{
 			TimePartitioning: &bigquery.TimePartitioning{
 				Expiration: expiration, // TODO defaultPartitionExpirationMsがdatasetにある場合は、それを設定するのが正しい https://github.com/googleapis/google-cloud-go/issues/7021
@@ -111,6 +125,9 @@ func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Con
 		return ErrAlreadyExpirationSetting
 	}
 
+	if opt.dryRun {
+		return nil
+	}
 	_, err = table.Update(ctx, bigquery.TableMetadataToUpdate{
 		ExpirationTime: meta.CreationTime.Add(expiration), // TODO CreationTime以外の選択肢
 	}, meta.ETag)
