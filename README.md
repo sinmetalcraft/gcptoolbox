@@ -6,3 +6,9 @@ Command Line Tool for Google Cloud Platform
 ```
 go install github.com/sinmetalcraft/gcptoolbox@latest
 ```
+
+## Develop
+
+```
+go generate ./...
+```

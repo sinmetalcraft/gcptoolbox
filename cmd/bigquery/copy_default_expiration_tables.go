@@ -13,6 +13,7 @@ import (
 
 var (
 	overwriteTableExpiration bool
+	baseDate                 string
 )
 
 func cmdCopyDefaultExpirationTables() *cobra.Command {
@@ -24,6 +25,7 @@ func cmdCopyDefaultExpirationTables() *cobra.Command {
 
 	// TODO datasetをargs[0]で、table-prefixがflagで統一した方が自然な感じはする
 	cmd.Flags().StringVar(&datasetID, "dataset", "dataset", "dataset")
+	cmd.Flags().StringVar(&baseDate, "base-date", "", "Select a date to base the table expiration on. CreationTime(default)|LastModifiedTime|TableSuffix")
 	cmd.Flags().BoolVar(&overwriteTableExpiration, "overwrite-table-expiration", false, "It will be overwritten even if there is already an expiration in the table")
 	cmd.Flags().BoolVar(&dryRun, "dryrun", false, "Display the target table but do not actually process it")
 	return cmd
@@ -58,10 +60,21 @@ func runCopyDefaultExpirationTables(cmd *cobra.Command, args []string) error {
 	fmt.Printf("DatasetID=%s\n", datasetID)
 	fmt.Printf("OverwriteTableExpiration=%t\n", overwriteTableExpiration)
 	fmt.Printf("DryRun=%t\n", dryRun)
+
+	if baseDate == "" {
+		baseDate = tables.CreationTime.String()
+	}
+	fmt.Printf("BaseDate=%s\n", baseDate)
+	baseDate, err := tables.ParseBaseDate(baseDate)
+	if err != nil {
+		return err
+	}
+
 	fmt.Println("Start copying default table expiration to tables")
 	fmt.Println()
 
 	var ops []tables.APIOptions
+	ops = append(ops, tables.WithBaseDate(baseDate))
 	if overwriteTableExpiration {
 		ops = append(ops, tables.WithOverwriteExpiration())
 	}

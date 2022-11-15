@@ -3,6 +3,7 @@ package tables
 type apiOptions struct {
 	overwriteExpiration bool
 	dryRun              bool
+	baseDate            BaseDate
 }
 
 type APIOptions func(options *apiOptions)
@@ -18,5 +19,12 @@ func WithOverwriteExpiration() APIOptions {
 func WithDryRun() APIOptions {
 	return func(ops *apiOptions) {
 		ops.dryRun = true
+	}
+}
+
+// WithBaseDate is Table Expiration計算時の基準となる日をどれにするのか
+func WithBaseDate(baseDate BaseDate) APIOptions {
+	return func(ops *apiOptions) {
+		ops.baseDate = baseDate
 	}
 }

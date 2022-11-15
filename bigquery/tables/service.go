@@ -73,15 +73,8 @@ func (s *Service) UpdateTablesExpirationFromDatasetDefaultSetting(ctx context.Co
 					return err
 				}
 			}
-			return err
+			return fmt.Errorf("failed update expiration. %s: %w", t.TableID, err)
 		}
-		msg := fmt.Sprintf("%s update expiration \n", t.TableID)
-		if opt.dryRun {
-			fmt.Printf("DryRun: %s", msg)
-			continue
-		}
-		fmt.Print(msg)
-
 	}
 	return nil
 }
@@ -105,7 +98,9 @@ func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Con
 	// TimePartitioningの場合
 	// TODO すでに設定されている場合、上書きするかスルーするか
 	if meta.TimePartitioning != nil {
+		msg := fmt.Sprintf("%s update TimePartitioning.Expiration %s \n", table.TableID, expiration)
 		if opt.dryRun {
+			fmt.Printf("DryRun: %s", msg)
 			return nil
 		}
 		_, err := table.Update(ctx, bigquery.TableMetadataToUpdate{
@@ -116,6 +111,7 @@ func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Con
 		if err != nil {
 			return err
 		}
+		fmt.Println(msg)
 		return nil
 	}
 
@@ -125,14 +121,49 @@ func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Con
 		return ErrAlreadyExpirationSetting
 	}
 
+	var expirationTime time.Time
+	switch opt.baseDate {
+	case LastModifiedTime:
+		expirationTime = meta.LastModifiedTime.Add(expiration)
+	case TableSuffix:
+		v, err := getTableSuffixDate(table.TableID)
+		if err != nil {
+			return err
+		}
+		expirationTime = v.Add(expiration)
+	default:
+		expirationTime = meta.CreationTime.Add(expiration)
+	}
+
+	msg := fmt.Sprintf("%s update Table.ExpirationTime %s \n", table.TableID, expirationTime)
 	if opt.dryRun {
+		fmt.Printf("DryRun: %s", msg)
 		return nil
 	}
 	_, err = table.Update(ctx, bigquery.TableMetadataToUpdate{
-		ExpirationTime: meta.CreationTime.Add(expiration), // TODO CreationTime以外の選択肢
+		ExpirationTime: expirationTime,
 	}, meta.ETag)
 	if err != nil {
 		return err
 	}
+	fmt.Println(msg)
 	return nil
+}
+
+func getYYYYMMDD(tableID string) (string, error) {
+	yyyyMMDD := tableID[len(tableID)-8:]
+	_, err := time.Parse("20060102", yyyyMMDD)
+	if err != nil {
+		return "", err
+	}
+	return yyyyMMDD, nil
+}
+
+func getTableSuffixDate(tableID string) (time.Time, error) {
+	yyyyMMDD := tableID[len(tableID)-8:]
+	v, err := time.Parse("20060102", yyyyMMDD)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return v, nil
 }
