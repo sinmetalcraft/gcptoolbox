@@ -12,7 +12,10 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-var errNotApplicableTableType error
+var (
+	ErrNotApplicableTableType   = fmt.Errorf("not applicable table type")
+	ErrAlreadyExpirationSetting = fmt.Errorf("already expiration setting")
+)
 
 type Service struct {
 	bq *bigquery.Client
@@ -32,6 +35,10 @@ func (s *Service) UpdateTablesExpirationFromDatasetDefaultSetting(ctx context.Co
 		return err
 	}
 	dte := meta.DefaultTableExpiration
+	if dte == 0 {
+		return fmt.Errorf("dataset did not have default table expiration")
+	}
+	// TODO defaultPartitionExpirationMsがdatasetにある場合は、それを設定するのが正しい https://github.com/googleapis/google-cloud-go/issues/7021
 
 	iter := ds.Tables(ctx)
 	for {
@@ -42,10 +49,14 @@ func (s *Service) UpdateTablesExpirationFromDatasetDefaultSetting(ctx context.Co
 		if err != nil {
 			return err
 		}
-		err = s.UpdateTableExpirationFromDatasetDefaultSetting(ctx, t, dte)
-		if err != nil {
-			if errors.Is(err, errNotApplicableTableType) {
+
+		if err := s.UpdateTableExpirationFromDatasetDefaultSetting(ctx, t, dte); err != nil {
+			if errors.Is(err, ErrNotApplicableTableType) {
 				fmt.Printf("%s is not applicable table type\n", t.TableID)
+				continue
+			}
+			if errors.Is(err, ErrAlreadyExpirationSetting) {
+				fmt.Printf("%s is already expiration setting\n", t.TableID)
 				continue
 			}
 			var gapiErr *googleapi.Error
@@ -57,8 +68,9 @@ func (s *Service) UpdateTablesExpirationFromDatasetDefaultSetting(ctx context.Co
 					return err
 				}
 			}
+			return err
 		}
-		fmt.Printf("%s update expiration\n", t.TableID)
+		fmt.Printf("%s update expiration \n", t.TableID)
 	}
 	return nil
 }
@@ -71,14 +83,15 @@ func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Con
 
 	// 実Table以外は対象外
 	if meta.Type != bigquery.RegularTable {
-		return errNotApplicableTableType
+		return ErrNotApplicableTableType
 	}
 
 	// TimePartitioningの場合
+	// TODO すでに設定されている場合、上書きするかスルーするか
 	if meta.TimePartitioning != nil {
 		_, err := table.Update(ctx, bigquery.TableMetadataToUpdate{
 			TimePartitioning: &bigquery.TimePartitioning{
-				Expiration: expiration,
+				Expiration: expiration, // TODO defaultPartitionExpirationMsがdatasetにある場合は、それを設定するのが正しい https://github.com/googleapis/google-cloud-go/issues/7021
 			},
 		}, meta.ETag)
 		if err != nil {
@@ -88,6 +101,11 @@ func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Con
 	}
 
 	// Sharding Table等の場合
+	if !meta.ExpirationTime.IsZero() {
+		// すでに設定されている場合、更新しない
+		return ErrAlreadyExpirationSetting // TODO 上書きオプション追加
+	}
+
 	_, err = table.Update(ctx, bigquery.TableMetadataToUpdate{
 		ExpirationTime: meta.CreationTime.Add(expiration), // TODO CreationTime以外の選択肢
 	}, meta.ETag)
