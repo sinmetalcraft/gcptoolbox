@@ -28,7 +28,7 @@ func NewService(ctx context.Context, bq *bigquery.Client) (*Service, error) {
 }
 
 // UpdateTablesExpirationFromDatasetDefaultSetting is DatasetのDefault Table ExpirationをTableにコピーする
-func (s *Service) UpdateTablesExpirationFromDatasetDefaultSetting(ctx context.Context, projectID string, dataset string) error {
+func (s *Service) UpdateTablesExpirationFromDatasetDefaultSetting(ctx context.Context, projectID string, dataset string, ops ...APIOptions) error {
 	ds := s.bq.DatasetInProject(projectID, dataset)
 	meta, err := ds.Metadata(ctx)
 	if err != nil {
@@ -50,7 +50,7 @@ func (s *Service) UpdateTablesExpirationFromDatasetDefaultSetting(ctx context.Co
 			return err
 		}
 
-		if err := s.UpdateTableExpirationFromDatasetDefaultSetting(ctx, t, dte); err != nil {
+		if err := s.UpdateTableExpirationFromDatasetDefaultSetting(ctx, t, dte, ops...); err != nil {
 			if errors.Is(err, ErrNotApplicableTableType) {
 				fmt.Printf("%s is not applicable table type\n", t.TableID)
 				continue
@@ -75,7 +75,12 @@ func (s *Service) UpdateTablesExpirationFromDatasetDefaultSetting(ctx context.Co
 	return nil
 }
 
-func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Context, table *bigquery.Table, expiration time.Duration) error {
+func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Context, table *bigquery.Table, expiration time.Duration, ops ...APIOptions) error {
+	opt := apiOptions{}
+	for _, o := range ops {
+		o(&opt)
+	}
+
 	meta, err := table.Metadata(ctx)
 	if err != nil {
 		return err
@@ -101,9 +106,9 @@ func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Con
 	}
 
 	// Sharding Table等の場合
-	if !meta.ExpirationTime.IsZero() {
-		// すでに設定されている場合、更新しない
-		return ErrAlreadyExpirationSetting // TODO 上書きオプション追加
+	if !meta.ExpirationTime.IsZero() && !opt.overwriteExpiration {
+		// 上書き指示がなく、すでに設定されていれば、更新しない
+		return ErrAlreadyExpirationSetting
 	}
 
 	_, err = table.Update(ctx, bigquery.TableMetadataToUpdate{
