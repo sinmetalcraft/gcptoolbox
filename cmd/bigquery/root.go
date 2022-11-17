@@ -21,7 +21,7 @@ func Command() *cobra.Command {
 		},
 	}
 	cmd.AddCommand(cmdDeleteTables())
-	cmd.AddCommand(cmdUpdateExpiration())
+	cmd.AddCommand(cmdUpdateExpirationTables())
 	cmd.AddCommand(cmdCopyDefaultExpirationTables())
 	return cmd
 }

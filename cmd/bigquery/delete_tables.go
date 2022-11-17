@@ -1,7 +1,6 @@
 package bigquery
 
 import (
-	"context"
 	"fmt"
 
 	"cloud.google.com/go/bigquery"
@@ -24,7 +23,7 @@ func cmdDeleteTables() *cobra.Command {
 }
 
 func runDeleteTables(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	ctx := cmd.Context()
 	projectID, ok := contexter.ProjectID(ctx)
 	if !ok {
 		return fmt.Errorf("project required")
