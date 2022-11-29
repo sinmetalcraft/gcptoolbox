@@ -111,11 +111,11 @@ func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Con
 		if err != nil {
 			return err
 		}
-		fmt.Println(msg)
+		fmt.Print(msg)
 		return nil
 	}
 
-	// Sharding Table等の場合
+	// 通常のTableの場合
 	if !meta.ExpirationTime.IsZero() && !opt.overwriteExpiration {
 		// 上書き指示がなく、すでに設定されていれば、更新しない
 		return ErrAlreadyExpirationSetting
@@ -146,7 +146,7 @@ func (s *Service) UpdateTableExpirationFromDatasetDefaultSetting(ctx context.Con
 	if err != nil {
 		return err
 	}
-	fmt.Println(msg)
+	fmt.Print(msg)
 	return nil
 }
 
