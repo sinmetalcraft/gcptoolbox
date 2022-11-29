@@ -17,6 +17,5 @@ steps:
     args: [ 'push', 'ghcr.io/sinmetalcraft/gcptoolbox:$TAG_NAME' ]
 availableSecrets:
   secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/github-sinmetal-pat/versions/latest
-      env: 'GITHUBPAT'
-images: ['gcr.io/$PROJECT_ID/gcptoolbox:$TAG_NAME']
+  - versionName: projects/$PROJECT_ID/secrets/github-sinmetal-pat/versions/latest
+    env: 'GITHUBPAT'
