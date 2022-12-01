@@ -4,7 +4,7 @@ steps:
     args: ['build', '.']
     env: ['GO111MODULE=on']
   - name: 'gcr.io/cloud-builders/docker'
-    args: [ 'build', '-t', 'gcr.io/$PROJECT_ID/gcptoolbox:$TAG_NAME,gcr.io/$PROJECT_ID/gcptoolbox:latest', '.' ]
+    args: [ 'build', '-t', 'gcr.io/$PROJECT_ID/gcptoolbox:$TAG_NAME', '-t','gcr.io/$PROJECT_ID/gcptoolbox:latest', '.' ]
   - name: 'gcr.io/cloud-builders/docker'
     args: [ 'push', 'gcr.io/$PROJECT_ID/gcptoolbox:$TAG_NAME' ]
   - name: 'gcr.io/cloud-builders/docker'
@@ -14,7 +14,7 @@ steps:
     args: [ '-c', 'docker login ghcr.io --username=sinmetal --password=$$GITHUBPAT' ]
     secretEnv: ['GITHUBPAT']
   - name: 'gcr.io/cloud-builders/docker'
-    args: [ 'build', '-t', 'ghcr.io/sinmetalcraft/gcptoolbox:$TAG_NAME,ghcr.io/sinmetalcraft/gcptoolbox:latest', '.' ]
+    args: [ 'build', '-t', 'ghcr.io/sinmetalcraft/gcptoolbox:$TAG_NAME', '-t', 'ghcr.io/sinmetalcraft/gcptoolbox:latest', '.' ]
   - name: 'gcr.io/cloud-builders/docker'
     args: [ 'push', 'ghcr.io/sinmetalcraft/gcptoolbox:$TAG_NAME' ]
   - name: 'gcr.io/cloud-builders/docker'
