@@ -122,7 +122,7 @@ func ExportStorageReceiveByte(ctx context.Context, w io.Writer, project string) 
 				AlignmentPeriod:    d,
 				PerSeriesAligner:   monitoringpb.Aggregation_ALIGN_SUM,
 				CrossSeriesReducer: monitoringpb.Aggregation_REDUCE_SUM,
-				GroupByFields:      []string{"resource.bucket_name", "resource.location"},
+				GroupByFields:      []string{"resource.project_id", "resource.bucket_name", "resource.location"},
 			},
 			Interval: &monitoringpb.TimeInterval{
 				StartTime: timestamppb.New(startTime),
