@@ -12,3 +12,15 @@ go install github.com/sinmetalcraft/gcptoolbox@latest
 ```
 go generate ./...
 ```
+
+## Example
+
+### monitoring metrics export
+
+```
+gcptoolbox monitoring export {PROJECT_ID} storage-total-bytes
+```
+
+```
+gcptoolbox monitoring export {PROJECT_ID} storage-receive-bytes
+```

@@ -3,6 +3,7 @@ package export
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -17,13 +18,19 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func RunE(cmd *cobra.Command, args []string) error {
+const (
+	exportTypeStorageTotalBytes   = "storage-total-bytes"
+	exportTypeStorageReceiveBytes = "storage-receive-bytes"
+)
+
+func RunE(cmd *cobra.Command, args []string) (err error) {
 	ctx := cmd.Context()
 
 	targetProjectID := args[0]
 	exportMetrics := args[1]
-	if validMetricsType(exportMetrics) {
-		return fmt.Errorf("invalid metrics type")
+
+	if err := validateExportMetricsType(exportMetrics); err != nil {
+		return err
 	}
 
 	fileName := exportFileName(exportMetrics, targetProjectID)
@@ -35,14 +42,21 @@ func RunE(cmd *cobra.Command, args []string) error {
 		if err := file.Close(); err != nil {
 			fmt.Printf("warning: failed file.Close() err=%s", err)
 		}
+
+		if err != nil {
+			// 処理が成功しなかった場合は、Exportしようとして作ったファイルを消す
+			if err := os.Remove(fileName); err != nil {
+				fmt.Printf("warning: failed file.Remove() err=%s", err)
+			}
+		}
 	}()
 
 	switch exportMetrics {
-	case "storage-totalbytes":
+	case exportTypeStorageTotalBytes:
 		if err := ExportStorageTotalByte(ctx, file, targetProjectID); err != nil {
 			return err
 		}
-	case "storage-receive-bytes":
+	case exportTypeStorageReceiveBytes:
 		if err := ExportStorageReceiveByte(ctx, file, targetProjectID); err != nil {
 			return err
 		}
@@ -54,13 +68,14 @@ func RunE(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func validMetricsType(metricsType string) bool {
-	switch metricsType {
-	case "storage-totalbytes":
-		return true
-	default:
-		return false
+func validateExportMetricsType(metricsType string) error {
+	l := []string{exportTypeStorageTotalBytes, exportTypeStorageReceiveBytes}
+	for _, v := range l {
+		if v == metricsType {
+			return nil
+		}
 	}
+	return fmt.Errorf("invalid metrics type.support type is %s", strings.Join(l, ","))
 }
 
 func exportFileName(exportMetrics string, targetProjectID string) string {
