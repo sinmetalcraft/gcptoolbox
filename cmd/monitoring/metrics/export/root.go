@@ -29,7 +29,7 @@ func RunE(cmd *cobra.Command, args []string) (err error) {
 	exportMetrics := args[0]
 	targetProjectID := args[1]
 	if err := validateExportMetricsType(exportMetrics); err != nil {
-		return err
+		return fmt.Errorf("input type is %s: %w", exportMetrics, err)
 	}
 
 	fileName := exportFileName(exportMetrics, targetProjectID)
