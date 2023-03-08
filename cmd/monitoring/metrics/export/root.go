@@ -26,9 +26,8 @@ const (
 func RunE(cmd *cobra.Command, args []string) (err error) {
 	ctx := cmd.Context()
 
-	targetProjectID := args[0]
-	exportMetrics := args[1]
-
+	exportMetrics := args[0]
+	targetProjectID := args[1]
 	if err := validateExportMetricsType(exportMetrics); err != nil {
 		return err
 	}
