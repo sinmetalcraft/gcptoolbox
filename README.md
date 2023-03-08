@@ -18,9 +18,9 @@ go generate ./...
 ### monitoring metrics export
 
 ```
-gcptoolbox monitoring export {PROJECT_ID} storage-total-bytes
+gcptoolbox monitoring export storage-total-bytes {PROJECT_ID}
 ```
 
 ```
-gcptoolbox monitoring export {PROJECT_ID} storage-receive-bytes
+gcptoolbox monitoring export storage-receive-bytes {PROJECT_ID} 
 ```
