@@ -5,6 +5,7 @@ go 1.19
 require (
 	cloud.google.com/go/bigquery v1.52.0
 	cloud.google.com/go/monitoring v1.15.1
+	cloud.google.com/go/storage v1.30.1
 	github.com/apstndb/adcplus v0.0.0-20210615091706-c0983920581f
 	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/sinmetalcraft/gcpbox v1.21.0
