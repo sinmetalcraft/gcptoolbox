@@ -22,7 +22,7 @@ func NewService(ctx context.Context, gcs *storage.Client) (*Service, error) {
 }
 
 // DeleteObjectsFromObjectListFilePath is 指定したCloud Storageのpathに書いてあるobject listのobjectを消す
-func (s *Service) DeleteObjectsFromObjectListFilePath(ctx context.Context, objectListFilePath string) error {
+func (s *Service) DeleteObjectsFromObjectListFilePath(ctx context.Context, objectListFilePath string, multiCount int) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -50,7 +50,7 @@ func (s *Service) DeleteObjectsFromObjectListFilePath(ctx context.Context, objec
 
 	wg := &sync.WaitGroup{}
 	ch := make(chan string)
-	for i := 0; i < 1; i++ { // 並列にやるなら、goroutine増やす
+	for i := 0; i < multiCount; i++ { // 並列にやるなら、goroutine増やす
 		wg.Add(1)
 		go func(ctx context.Context) {
 			for {

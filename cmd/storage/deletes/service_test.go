@@ -99,7 +99,7 @@ func TestService_DeleteObjectsFromObjectListFilePath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.DeleteObjectsFromObjectListFilePath(ctx, targetDeleteObjectListFullPath); err != nil {
+	if err := s.DeleteObjectsFromObjectListFilePath(ctx, targetDeleteObjectListFullPath, 8); err != nil {
 		t.Fatal(err)
 	}
 

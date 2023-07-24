@@ -9,12 +9,17 @@ import (
 	"google.golang.org/api/option"
 )
 
+var multiCount int
+
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",
 		Short: "delete",
 		RunE:  RunE,
 	}
+
+	cmd.Flags().IntVar(&multiCount, "multi", 1, "multi")
+
 	return cmd
 }
 
@@ -38,7 +43,7 @@ func RunE(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := s.DeleteObjectsFromObjectListFilePath(ctx, objectListFilePath); err != nil {
+	if err := s.DeleteObjectsFromObjectListFilePath(ctx, objectListFilePath, multiCount); err != nil {
 		return err
 	}
 
