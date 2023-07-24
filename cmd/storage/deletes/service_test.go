@@ -1,15 +1,16 @@
-package storage_test
+package deletes_test
 
 import (
 	"context"
 	"errors"
 	"fmt"
+
 	"testing"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/google/uuid"
-	gcstoolbox "github.com/sinmetalcraft/gcptoolbox/cmd/storage"
+	deletetoolbox "github.com/sinmetalcraft/gcptoolbox/cmd/storage/deletes"
 )
 
 const testBucket = "gcptoolbox-ci"
@@ -40,7 +41,7 @@ func TestService_DeleteObject(t *testing.T) {
 	}
 
 	// test start
-	s, err := gcstoolbox.NewService(ctx, gcs)
+	s, err := deletetoolbox.NewService(ctx, gcs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +95,7 @@ func TestService_DeleteObjectsFromObjectListFilePath(t *testing.T) {
 	}
 
 	// test start
-	s, err := gcstoolbox.NewService(ctx, gcs)
+	s, err := deletetoolbox.NewService(ctx, gcs)
 	if err != nil {
 		t.Fatal(err)
 	}

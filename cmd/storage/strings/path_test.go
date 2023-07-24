@@ -1,9 +1,8 @@
-package storage_test
+package strings_test
 
 import (
+	"github.com/sinmetalcraft/gcptoolbox/cmd/storage/strings"
 	"testing"
-
-	"github.com/sinmetalcraft/gcptoolbox/cmd/storage"
 )
 
 func TestResolutionBucketAndObjectPath(t *testing.T) {
@@ -22,7 +21,7 @@ func TestResolutionBucketAndObjectPath(t *testing.T) {
 	for _, tt := range cases {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			gotBucket, gotObject, err := storage.ResolutionBucketAndObjectPath(tt.path)
+			gotBucket, gotObject, err := strings.ResolutionBucketAndObjectPath(tt.path)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -46,7 +45,7 @@ func TestResolutionBucketAndObjectPathError(t *testing.T) {
 	for _, tt := range cases {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := storage.ResolutionBucketAndObjectPath(tt.path)
+			_, _, err := strings.ResolutionBucketAndObjectPath(tt.path)
 			if err == nil {
 				t.Failed()
 			}

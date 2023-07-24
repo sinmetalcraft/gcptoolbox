@@ -1,4 +1,4 @@
-package storage
+package deletes
 
 import (
 	"bufio"
@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"cloud.google.com/go/storage"
+	gcsstrings "github.com/sinmetalcraft/gcptoolbox/cmd/storage/strings"
 )
 
 type Service struct {
@@ -25,7 +26,7 @@ func (s *Service) DeleteObjectsFromObjectListFilePath(ctx context.Context, objec
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	bucket, object, err := ResolutionBucketAndObjectPath(objectListFilePath)
+	bucket, object, err := gcsstrings.ResolutionBucketAndObjectPath(objectListFilePath)
 	if err != nil {
 		return fmt.Errorf("invalid objectListFilePath %s :%w", objectListFilePath, err)
 	}
@@ -96,7 +97,7 @@ func (s *Service) DeleteObjectsFromObjectListFilePath(ctx context.Context, objec
 }
 
 func (s *Service) DeleteObject(ctx context.Context, path string) error {
-	bucket, object, err := ResolutionBucketAndObjectPath(path)
+	bucket, object, err := gcsstrings.ResolutionBucketAndObjectPath(path)
 	if err != nil {
 		return err
 	}
