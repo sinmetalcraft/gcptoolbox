@@ -10,6 +10,7 @@ import (
 )
 
 var multiCount int
+var skipHeaderRowCount int
 
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
@@ -19,6 +20,7 @@ func Command() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&multiCount, "multi", 1, "multi")
+	cmd.Flags().IntVar(&skipHeaderRowCount, "skipHeaderRow", 0, "skipHeaderRow")
 
 	return cmd
 }
@@ -43,7 +45,7 @@ func RunE(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := s.DeleteObjectsFromObjectListFilePath(ctx, objectListFilePath, multiCount); err != nil {
+	if err := s.DeleteObjectsFromObjectListFilePath(ctx, objectListFilePath, skipHeaderRowCount, multiCount); err != nil {
 		return err
 	}
 

@@ -22,7 +22,7 @@ func NewService(ctx context.Context, gcs *storage.Client) (*Service, error) {
 }
 
 // DeleteObjectsFromObjectListFilePath is 指定したCloud Storageのpathに書いてあるobject listのobjectを消す
-func (s *Service) DeleteObjectsFromObjectListFilePath(ctx context.Context, objectListFilePath string, multiCount int) error {
+func (s *Service) DeleteObjectsFromObjectListFilePath(ctx context.Context, objectListFilePath string, skipHeaderRowCount int, multiCount int) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -78,8 +78,13 @@ func (s *Service) DeleteObjectsFromObjectListFilePath(ctx context.Context, objec
 		}(ctx)
 	}
 
+	var rowCount int
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
+		rowCount++
+		if rowCount <= skipHeaderRowCount {
+			continue
+		}
 		ch <- scanner.Text()
 	}
 	close(ch)

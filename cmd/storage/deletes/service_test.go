@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"testing"
 	"time"
 
@@ -63,53 +62,72 @@ func TestService_DeleteObjectsFromObjectListFilePath(t *testing.T) {
 		}
 	}()
 
-	// test data 作成
-	testPathPrefix := fmt.Sprintf("%s-%s", time.Now().Format("20060102-150405"), uuid.New().String())
-	t.Logf("testdata gs://%s/%s", testBucket, testPathPrefix)
-	var targetObjectList []string
-	for i := 0; i < 3; i++ {
-		testObject := fmt.Sprintf("%s/%s", testPathPrefix, uuid.New().String())
-		w := gcs.Bucket(testBucket).Object(testObject).NewWriter(ctx)
-		_, err = w.Write([]byte("hello world"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := w.Close(); err != nil {
-			t.Fatal(err)
-		}
-		targetObjectList = append(targetObjectList, testObject)
+	cases := []struct {
+		name          string
+		row           int
+		skipHeaderRow int
+		multiCount    int
+	}{
+		{"normal", 3, 0, 1},
+		{"skipHeaderRow", 3, 1, 1},
+		{"multiCount", 8, 1, 10},
 	}
 
-	// target delete list 作成
-	targetDeleteObjectListPath := fmt.Sprintf("%s/delete-list.csv", testPathPrefix)
-	targetDeleteObjectListFullPath := fmt.Sprintf("gs://%s/%s", testBucket, targetDeleteObjectListPath)
-	w := gcs.Bucket(testBucket).Object(targetDeleteObjectListPath).NewWriter(ctx)
-	for _, o := range targetObjectList {
-		_, err = w.Write([]byte(fmt.Sprintf("gs://%s/%s\n", testBucket, o)))
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := w.Close(); err != nil {
-		t.Fatal(err)
-	}
+	for _, tt := range cases {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			// test data 作成
+			testPathPrefix := fmt.Sprintf("%s-%s", time.Now().Format("20060102-150405"), uuid.New().String())
+			t.Logf("testdata gs://%s/%s", testBucket, testPathPrefix)
+			var targetObjectList []string
+			for i := 0; i < tt.skipHeaderRow; i++ {
+				targetObjectList = append(targetObjectList, fmt.Sprintf("header row %d", i))
+			}
+			for i := 0; i < tt.row; i++ {
+				testObject := fmt.Sprintf("%s/%s", testPathPrefix, uuid.New().String())
+				w := gcs.Bucket(testBucket).Object(testObject).NewWriter(ctx)
+				_, err = w.Write([]byte("hello world"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := w.Close(); err != nil {
+					t.Fatal(err)
+				}
+				targetObjectList = append(targetObjectList, testObject)
+			}
 
-	// test start
-	s, err := deletetoolbox.NewService(ctx, gcs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.DeleteObjectsFromObjectListFilePath(ctx, targetDeleteObjectListFullPath, 8); err != nil {
-		t.Fatal(err)
-	}
+			// target delete list 作成
+			targetDeleteObjectListPath := fmt.Sprintf("%s/delete-list.csv", testPathPrefix)
+			targetDeleteObjectListFullPath := fmt.Sprintf("gs://%s/%s", testBucket, targetDeleteObjectListPath)
+			w := gcs.Bucket(testBucket).Object(targetDeleteObjectListPath).NewWriter(ctx)
+			for _, o := range targetObjectList {
+				_, err = w.Write([]byte(fmt.Sprintf("gs://%s/%s\n", testBucket, o)))
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := w.Close(); err != nil {
+				t.Fatal(err)
+			}
 
-	// objectが消えていることを確認
-	for _, o := range targetObjectList {
-		_, err := gcs.Bucket(testBucket).Object(o).Attrs(ctx)
-		if errors.Is(err, storage.ErrObjectNotExist) {
-			//noop
-		} else {
-			t.Fatal(err)
-		}
+			// test start
+			s, err := deletetoolbox.NewService(ctx, gcs)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.DeleteObjectsFromObjectListFilePath(ctx, targetDeleteObjectListFullPath, tt.skipHeaderRow, tt.multiCount); err != nil {
+				t.Fatal(err)
+			}
+
+			// objectが消えていることを確認
+			for _, o := range targetObjectList {
+				_, err := gcs.Bucket(testBucket).Object(o).Attrs(ctx)
+				if errors.Is(err, storage.ErrObjectNotExist) {
+					//noop
+				} else {
+					t.Fatal(err)
+				}
+			}
+		})
 	}
 }
