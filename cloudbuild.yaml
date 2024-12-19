@@ -5,6 +5,6 @@ steps:
     env: ['CGO_ENABLED=0']
   - name: 'gcr.io/kaniko-project/executor:v1.12.1'
     args:
-      - --destination=gcr.io/$PROJECT_ID/gcptoolbox/$BRANCH_NAME:$COMMIT_SHA
+      - --destination=asia-northeast1-docker.pkg.dev/$PROJECT_ID/gcptoolbox/$BRANCH_NAME:$COMMIT_SHA
       - --cache=true
       - --cache-ttl=6h
