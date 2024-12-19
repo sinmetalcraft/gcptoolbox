@@ -9,6 +9,7 @@ import (
 	"github.com/sinmetalcraft/gcptoolbox/cmd/bq2gcs"
 	"github.com/sinmetalcraft/gcptoolbox/cmd/contexter"
 	"github.com/sinmetalcraft/gcptoolbox/cmd/monitoring"
+	"github.com/sinmetalcraft/gcptoolbox/cmd/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -43,6 +44,7 @@ func init() {
 		bigquery.Command(),
 		bq2gcs.Command(),
 		monitoring.Command(),
+		storage.Command(),
 	)
 }
 
