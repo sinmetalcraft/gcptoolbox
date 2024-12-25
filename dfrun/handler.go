@@ -43,10 +43,10 @@ type LaunchJobRequest struct {
 }
 
 func (h *Handler) Serve(ctx context.Context, w http.ResponseWriter, r *http.Request) *handlers.HTTPResponse {
-	if strings.HasPrefix(r.URL.Path, "dfrun/launchJob") {
+	if strings.HasPrefix(r.URL.Path, "/dfrun/launchJob") {
 		return h.HandleLaunchJob(ctx, w, r)
 	}
-	if strings.HasPrefix(r.URL.Path, "dfrun/checkJobStatus") {
+	if strings.HasPrefix(r.URL.Path, "/dfrun/checkJobStatus") {
 		return h.HandleCheckJobStatus(ctx, w, r)
 	}
 	return &handlers.HTTPResponse{
@@ -59,7 +59,7 @@ func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusBadRequest,
-			Body:       handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
+			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
 		}
 	}
 
@@ -82,9 +82,9 @@ func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r 
 	_, err = h.taskService.CreateJsonPostTask(ctx, &cloudtasksbox.Queue{},
 		&cloudtasksbox.JsonPostTask{
 			Name:         taskName,
-			Audience:     "",
-			RelativeURI:  "",
-			ScheduleTime: time.Now().Add(1*time.Hour + 15*time.Minute),
+			Audience:     h.relativeURI,
+			RelativeURI:  fmt.Sprintf("%s/%s", h.relativeURI, taskName), // Request Logで情報を増やすためにtaskNameをURIに付けている
+			ScheduleTime: time.Now().Add(1*time.Hour + 15*time.Minute),  // Spanner Exportがおおよそ完了しそうな時間に設定
 			Body:         checkJobStatusRequest,
 		})
 	if err != nil {
@@ -110,21 +110,21 @@ func (h *Handler) HandleCheckJobStatus(ctx context.Context, w http.ResponseWrite
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusBadRequest,
-			Body:       handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
+			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
 		}
 	}
 	job, err := h.runner.GetJob(ctx, req.JobProjectID, req.JobLocation, req.JobID)
 	if err != nil {
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
-			Body:       handlers.BasicErrorMessage{Err: fmt.Errorf("failed GetJob: %w", err)},
+			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("failed GetJob: %w", err)},
 		}
 	}
 	tasksHeader, err := cloudtasksbox.GetHeader(r)
 	if err != nil {
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
-			Body:       handlers.BasicErrorMessage{Err: fmt.Errorf("failed cloudtasksbox.GetHeader: %w", err)},
+			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("failed cloudtasksbox.GetHeader: %w", err)},
 		}
 	}
 	switch job.GetCurrentState() {

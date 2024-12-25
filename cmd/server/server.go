@@ -18,6 +18,8 @@ import (
 )
 
 func Run(ctx context.Context, port string) error {
+	fmt.Println("gcptoolbox server ignition")
+
 	if os.Getenv("GCPTOOLBOX_BQ2GCS") != "" {
 		fmt.Println("bq2gcs ignition")
 		http.Handle("/bq2gcs/export", handlers.BaseHandler(&bq2gcs.ExportHandler{}))
@@ -59,7 +61,7 @@ func Run(ctx context.Context, port string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create dfrun handler: %v", err)
 		}
-		http.Handle("/dfrun", handlers.BaseHandler(h))
+		http.Handle("/dfrun/", handlers.BaseHandler(h))
 	}
 
 	// Start HTTP server.
