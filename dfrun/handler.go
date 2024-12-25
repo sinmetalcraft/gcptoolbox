@@ -17,10 +17,11 @@ import (
 )
 
 type Handler struct {
-	projectID   string
-	runner      *dataflowbox.ClassicTemplateRunner
-	taskService *cloudtasksbox.Service
-	relativeURI string
+	projectID     string
+	runner        *dataflowbox.ClassicTemplateRunner
+	taskService   *cloudtasksbox.Service
+	relativeURI   string
+	checkJobQueue *cloudtasksbox.Queue
 }
 
 func NewHandler(ctx context.Context, runner *dataflowbox.ClassicTemplateRunner, taskService *cloudtasksbox.Service, cloudRunURI string) (*Handler, error) {
@@ -28,12 +29,18 @@ func NewHandler(ctx context.Context, runner *dataflowbox.ClassicTemplateRunner, 
 	if err != nil {
 		return nil, err
 	}
+	checkJobQueue := &cloudtasksbox.Queue{
+		ProjectID: projectID,
+		Region:    "asia-northeast1",
+		Name:      "gcptoolbox-dfrun-check-job",
+	}
 
 	return &Handler{
-		projectID:   projectID,
-		runner:      runner,
-		taskService: taskService,
-		relativeURI: fmt.Sprintf("%s/dfrun/checkJobStatus", cloudRunURI),
+		projectID:     projectID,
+		runner:        runner,
+		taskService:   taskService,
+		relativeURI:   fmt.Sprintf("%s/dfrun/checkJobStatus", cloudRunURI),
+		checkJobQueue: checkJobQueue,
 	}, nil
 }
 
@@ -81,7 +88,7 @@ func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r 
 
 	// Cloud Tasksに投入
 	taskName := fmt.Sprintf("%s-%s", time.Now().Format(time.DateOnly), uuid.New().String())
-	_, err = h.taskService.CreateJsonPostTask(ctx, &cloudtasksbox.Queue{},
+	_, err = h.taskService.CreateJsonPostTask(ctx, h.checkJobQueue,
 		&cloudtasksbox.JsonPostTask{
 			Name:         taskName,
 			Audience:     h.relativeURI,
