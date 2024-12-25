@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -9,10 +10,15 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+
 	port := os.Getenv("PORT")
 	cmdMode := os.Getenv("GCPTOOLBOX_CMD_MODE")
 	if port != "" && cmdMode != "true" {
-		server.Run(port)
+		if err := server.Run(ctx, port); err != nil {
+			fmt.Fprintf(os.Stderr, "failed run server. %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	if err := cmd.RootCmd.Execute(); err != nil {
