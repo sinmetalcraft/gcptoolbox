@@ -65,8 +65,10 @@ func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r 
 
 	resp, err := h.runner.LaunchSpannerToAvroOnGCSJob(ctx, req.SpannerToAvroOnGCSJobRequest, req.RuntimeEnvironment)
 	if err != nil {
+		fmt.Printf("error launching spanner to avro on GCS job: %v\n", err)
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
+			Body:       &handlers.BasicErrorMessage{Err: err},
 		}
 	}
 	job := resp.GetJob()
@@ -91,6 +93,7 @@ func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r 
 		fmt.Printf("failed cloudtasks.CreateTask :%s\n", err)
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
+			Body:       &handlers.BasicErrorMessage{Err: err},
 		}
 	}
 
@@ -115,6 +118,7 @@ func (h *Handler) HandleCheckJobStatus(ctx context.Context, w http.ResponseWrite
 	}
 	job, err := h.runner.GetJob(ctx, req.JobProjectID, req.JobLocation, req.JobID)
 	if err != nil {
+		fmt.Printf("failed cloudtasks.GetJob :%s\n", err)
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("failed GetJob: %w", err)},
@@ -122,6 +126,7 @@ func (h *Handler) HandleCheckJobStatus(ctx context.Context, w http.ResponseWrite
 	}
 	tasksHeader, err := cloudtasksbox.GetHeader(r)
 	if err != nil {
+		fmt.Printf("failed cloudtasksbox.GetHeader :%s\n", err)
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("failed cloudtasksbox.GetHeader: %w", err)},
@@ -142,6 +147,7 @@ func (h *Handler) HandleCheckJobStatus(ctx context.Context, w http.ResponseWrite
 		fmt.Println("job is stopped")
 	default:
 		// 処理中だったら
+		fmt.Println("spanner export job is running")
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusConflict,
 		}
