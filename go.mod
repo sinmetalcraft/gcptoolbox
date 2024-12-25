@@ -4,6 +4,7 @@ go 1.23.4
 
 require (
 	cloud.google.com/go/bigquery v1.65.0
+	cloud.google.com/go/cloudtasks v1.13.2
 	cloud.google.com/go/dataflow v0.10.2
 	cloud.google.com/go/monitoring v1.22.0
 	cloud.google.com/go/storage v1.49.0
@@ -21,7 +22,6 @@ require (
 	cloud.google.com/go v0.116.0 // indirect
 	cloud.google.com/go/auth v0.13.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.6 // indirect
-	cloud.google.com/go/cloudtasks v1.13.2 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	cloud.google.com/go/iam v1.2.2 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.25.0 // indirect
@@ -77,5 +77,3 @@ require (
 	google.golang.org/grpc v1.68.0 // indirect
 	google.golang.org/grpc/stats/opentelemetry v0.0.0-20241028142157-ada6787961b3 // indirect
 )
-
-replace github.com/sinmetalcraft/gcpbox => ../gcpbox
