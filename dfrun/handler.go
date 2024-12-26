@@ -14,6 +14,7 @@ import (
 	metadatabox "github.com/sinmetalcraft/gcpbox/metadata"
 	dataflowbox "github.com/sinmetalcraft/gcptoolbox/dfrun/dataflow"
 	"github.com/sinmetalcraft/gcptoolbox/handlers"
+	"github.com/sinmetalcraft/gcptoolbox/internal/slack"
 )
 
 type Handler struct {
@@ -22,9 +23,33 @@ type Handler struct {
 	taskService   *cloudtasksbox.Service
 	relativeURI   string
 	checkJobQueue *cloudtasksbox.Queue
+
+	// slackに通知を行う場合に設定するChannelID
+	slackChannelID string
+	// slackService is 登録するとslackにnotifyを送ってくれるようになる
+	slackService *slack.Service
 }
 
-func NewHandler(ctx context.Context, runner *dataflowbox.ClassicTemplateRunner, taskService *cloudtasksbox.Service, cloudRunURI string) (*Handler, error) {
+type Options struct {
+	SlackChannelID string
+	SlackService   *slack.Service
+}
+
+type Option func(*Options)
+
+func WithNotifyToSlack(slackChannelID string, slackService *slack.Service) Option {
+	return func(ops *Options) {
+		ops.SlackChannelID = slackChannelID
+		ops.SlackService = slackService
+	}
+}
+
+func NewHandler(ctx context.Context, runner *dataflowbox.ClassicTemplateRunner, taskService *cloudtasksbox.Service, cloudRunURI string, ops ...Option) (*Handler, error) {
+	options := &Options{}
+	for _, op := range ops {
+		op(options)
+	}
+
 	projectID, err := metadatabox.ProjectID()
 	if err != nil {
 		return nil, err
@@ -64,6 +89,7 @@ func (h *Handler) Serve(ctx context.Context, w http.ResponseWriter, r *http.Requ
 func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r *http.Request) *handlers.HTTPResponse {
 	var req *LaunchJobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// TODO slack通知
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
@@ -72,6 +98,7 @@ func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r 
 
 	resp, err := h.runner.LaunchSpannerToAvroOnGCSJob(ctx, req.SpannerToAvroOnGCSJobRequest, req.RuntimeEnvironment)
 	if err != nil {
+		// TODO slack通知
 		fmt.Printf("error launching spanner to avro on GCS job: %v\n", err)
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -140,32 +167,79 @@ func (h *Handler) HandleCheckJobStatus(ctx context.Context, w http.ResponseWrite
 		}
 	}
 	switch job.GetCurrentState() {
-	case dataflowpb.JobState_JOB_STATE_DONE:
-		// Slackに完了通知
-		fmt.Println("job is done")
-	case dataflowpb.JobState_JOB_STATE_FAILED:
-		// Slackに失敗通知
-		fmt.Println("job is failed")
-	case dataflowpb.JobState_JOB_STATE_CANCELLED:
-		// Slackにキャンセル通知
-		fmt.Println("job is cancelled")
-	case dataflowpb.JobState_JOB_STATE_STOPPED:
-		// Slackに停止通知
-		fmt.Println("job is stopped")
+	case dataflowpb.JobState_JOB_STATE_DONE,
+		dataflowpb.JobState_JOB_STATE_FAILED,
+		dataflowpb.JobState_JOB_STATE_CANCELLED,
+		dataflowpb.JobState_JOB_STATE_STOPPED:
+
+		startAt := job.GetStartTime().AsTime()
+		currentStateAT := job.GetCurrentStateTime().AsTime()
+		elapsedTime := startAt.Sub(currentStateAT)
+		fmt.Printf("spanner export job is %s\n", job.GetCurrentState())
+		if err := h.notifyToSlack(ctx, job.GetProjectId(), job.GetLocation(), job.GetId(), job.GetName(),
+			job.GetCurrentState(), startAt, elapsedTime, ""); err != nil {
+			return &handlers.HTTPResponse{
+				StatusCode: http.StatusInternalServerError,
+				Body:       &handlers.BasicErrorMessage{Err: err},
+			}
+		}
+		return &handlers.HTTPResponse{
+			StatusCode: http.StatusOK,
+		}
 	default:
-		// 処理中だったら
+		// 大抵、処理中のはず
 		fmt.Println("spanner export job is running")
+
+		// 時間が長すぎる場合は、通知をして処理終了する
+		if tasksHeader.RetryCount > 10 {
+			fmt.Println("spanner export job state check retry count over")
+			startAt := job.GetStartTime().AsTime()
+			currentStateAT := job.GetCurrentStateTime().AsTime()
+			elapsedTime := startAt.Sub(currentStateAT)
+			if err := h.notifyToSlack(ctx, job.GetProjectId(), job.GetLocation(), job.GetId(), job.GetName(),
+				job.GetCurrentState(), startAt, elapsedTime,
+				"spanner export job state check retry count over. Check the status of Dataflow Job."); err != nil {
+				return &handlers.HTTPResponse{
+					StatusCode: http.StatusInternalServerError,
+					Body:       &handlers.BasicErrorMessage{Err: err},
+				}
+			}
+			return &handlers.HTTPResponse{
+				StatusCode: http.StatusOK,
+			}
+		}
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusConflict,
 		}
 	}
+}
 
-	if tasksHeader.RetryCount > 10 {
-		// TODO 通知をして終わるみたいなところある
-	}
-
-	// Slackに完了通知
+func (h *Handler) handleError(ctx context.Context, statusCode int, err error) *handlers.HTTPResponse {
 	return &handlers.HTTPResponse{
-		StatusCode: http.StatusOK,
+		StatusCode: statusCode,
+		Body:       &handlers.BasicErrorMessage{Err: err},
 	}
+}
+
+func (h *Handler) notifyToSlack(ctx context.Context, jobProjectID, jobLocation, jobID, jobName string, jobState dataflowpb.JobState, startAt time.Time, elapsedTime time.Duration, message string) error {
+	if h.slackService == nil {
+		// TODO logだけ出力して終わる
+		return nil
+	}
+	err := h.slackService.PostMessageForDFRunJobNotify(ctx, &slack.DFRunJobNotifyMessage{
+		ChannelID:            h.slackChannelID,
+		DataflowJobProjectID: jobProjectID,
+		DataflowLocation:     jobLocation,
+		DataflowJobID:        jobID,
+		DataflowJobName:      jobName,
+		JobState:             jobState,
+		JobStartAt:           startAt,
+		JobElapsedTime:       elapsedTime,
+		QueueName:            h.checkJobQueue.Name,
+		Message:              "",
+	})
+	if err != nil {
+		return fmt.Errorf("failed slack.PostMessageForDFRunJobNotify: %w", err)
+	}
+	return nil
 }
