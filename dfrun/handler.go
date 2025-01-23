@@ -62,11 +62,13 @@ func NewHandler(ctx context.Context, runner *dataflowbox.ClassicTemplateRunner, 
 	}
 
 	return &Handler{
-		projectID:     projectID,
-		runner:        runner,
-		taskService:   taskService,
-		relativeURI:   fmt.Sprintf("%s/dfrun/checkJobStatus", cloudRunURI),
-		checkJobQueue: checkJobQueue,
+		projectID:      projectID,
+		runner:         runner,
+		taskService:    taskService,
+		relativeURI:    fmt.Sprintf("%s/dfrun/checkJobStatus", cloudRunURI),
+		checkJobQueue:  checkJobQueue,
+		slackChannelID: options.SlackChannelID,
+		slackService:   options.SlackService,
 	}, nil
 }
 
