@@ -12,6 +12,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/sinmetalcraft/gcpbox v1.24.0
+	github.com/slack-go/slack v0.15.0
 	github.com/spf13/cobra v1.8.1
 	google.golang.org/api v0.214.0
 	google.golang.org/protobuf v1.36.1
@@ -50,7 +51,6 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
-	github.com/slack-go/slack v0.15.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect

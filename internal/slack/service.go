@@ -19,6 +19,7 @@ func NewService(ctx context.Context, token string) (*Service, error) {
 	return &Service{cli: cli}, nil
 }
 
+// PostMessage is Low-levelなAPI
 func (s *Service) PostMessage(ctx context.Context, channelID string, attachment *slack.Attachment) error {
 	//attachment := slack.Attachment{
 	//	Color:   "good",
@@ -43,20 +44,45 @@ func (s *Service) PostMessage(ctx context.Context, channelID string, attachment 
 	return nil
 }
 
-type DFRunJobNotifyMessage struct {
-	ChannelID            string
-	DataflowJobProjectID string
-	DataflowLocation     string
-	DataflowJobID        string
-	DataflowJobName      string
-	JobState             dataflowpb.JobState
-	JobStartAt           time.Time
-	JobElapsedTime       time.Duration
-	QueueName            string
-	Message              string
+type ErrorMessage struct {
+	Title     string
+	TitleLink string
+	Pretext   string
+	Text      string
 }
 
-func (s *Service) PostMessageForDFRunJobNotify(ctx context.Context, message *DFRunJobNotifyMessage) error {
+// PostErrorMessage is ErrorをSlackに通知する
+func (s *Service) PostErrorMessage(ctx context.Context, channelID string, message *ErrorMessage) error {
+	attachment := slack.Attachment{
+		Color:     "danger",
+		Title:     message.Title,
+		TitleLink: message.TitleLink,
+		Pretext:   message.Pretext,
+		Text:      message.Text,
+	}
+	_, _, err := s.cli.PostMessageContext(ctx, channelID,
+		slack.MsgOptionAttachments(attachment),
+		slack.MsgOptionAsUser(true))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type DFRunJobNotifyMessage struct {
+	DataflowJobProjectID string              `json:"dataflowJobProjectID"`
+	DataflowLocation     string              `json:"dataflowLocation"`
+	DataflowJobID        string              `json:"dataflowJobID"`
+	DataflowJobName      string              `json:"dataflowJobName"`
+	JobState             dataflowpb.JobState `json:"jobState"`
+	JobStartAt           time.Time           `json:"jobStartAt"`
+	JobElapsedTime       time.Duration       `json:"jobElapsedTime"`
+	QueueName            string              `json:"queueName"`
+	Message              string              `json:"message"`
+}
+
+// PostMessageForDFRunJobNotify is DFRunがJobの状態をSlack通知する
+func (s *Service) PostMessageForDFRunJobNotify(ctx context.Context, channelID string, message *DFRunJobNotifyMessage) error {
 	var color string
 	switch message.JobState {
 	case dataflowpb.JobState_JOB_STATE_DONE:
@@ -77,7 +103,7 @@ func (s *Service) PostMessageForDFRunJobNotify(ctx context.Context, message *DFR
 		Pretext:   fmt.Sprintf("%s: ", message.QueueName),
 		Text:      fmt.Sprintf("State:%s\nStartAt:%s,ElastedTime:%s\n%s", dataflowpbbox.JobStateText(message.JobState), message.JobStartAt, message.JobElapsedTime, message.Message),
 	}
-	if err := s.PostMessage(ctx, message.ChannelID, attachment); err != nil {
+	if err := s.PostMessage(ctx, channelID, attachment); err != nil {
 		return err
 	}
 	return nil

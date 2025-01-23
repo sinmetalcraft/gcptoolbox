@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -86,10 +87,22 @@ func (h *Handler) Serve(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// HandleLaunchJob is Handler to Submit Dataflow Job
 func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r *http.Request) *handlers.HTTPResponse {
 	var req *LaunchJobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// TODO slack通知
+		fmt.Printf("invalid request body. %s\n", err)
+		if h.slackService != nil {
+			err := h.slackService.PostErrorMessage(ctx, h.slackChannelID, &slack.ErrorMessage{
+				Title:     "dfrun: Invalid Request Format",
+				TitleLink: "",
+				Pretext:   "",
+				Text:      "Unable to submit Dataflow Job due to an invalid Body Format in the LaunchJob Request. Please check the Client sending the Request. In many cases, it is likely being executed from Cloud Scheduler.",
+			})
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
@@ -98,8 +111,18 @@ func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r 
 
 	resp, err := h.runner.LaunchSpannerToAvroOnGCSJob(ctx, req.SpannerToAvroOnGCSJobRequest, req.RuntimeEnvironment)
 	if err != nil {
-		// TODO slack通知
-		fmt.Printf("error launching spanner to avro on GCS job: %v\n", err)
+		fmt.Printf("error launching spanner to avro on GCS job: %s\n", err)
+		if h.slackService != nil {
+			err := h.slackService.PostErrorMessage(ctx, h.slackChannelID, &slack.ErrorMessage{
+				Title:     "dfrun: Failed LaunchSpannerToAvroOnGCSJob",
+				TitleLink: "",
+				Pretext:   "",
+				Text:      fmt.Sprintf("Failed to launch LaunchSpannerToAvroOnGCSJob. Please check the error details and resubmit the Dataflow Job if necessary.\nerr=%s", err),
+			})
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       &handlers.BasicErrorMessage{Err: err},
@@ -142,6 +165,7 @@ type CheckJobStatusRequest struct {
 	JobID        string `json:"jobId"`
 }
 
+// HandleCheckJobStatus is Handler to Check the Status of Dataflow Job
 func (h *Handler) HandleCheckJobStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) *handlers.HTTPResponse {
 	var req *CheckJobStatusRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -222,12 +246,7 @@ func (h *Handler) handleError(ctx context.Context, statusCode int, err error) *h
 }
 
 func (h *Handler) notifyToSlack(ctx context.Context, jobProjectID, jobLocation, jobID, jobName string, jobState dataflowpb.JobState, startAt time.Time, elapsedTime time.Duration, message string) error {
-	if h.slackService == nil {
-		// TODO logだけ出力して終わる
-		return nil
-	}
-	err := h.slackService.PostMessageForDFRunJobNotify(ctx, &slack.DFRunJobNotifyMessage{
-		ChannelID:            h.slackChannelID,
+	msg := &slack.DFRunJobNotifyMessage{
 		DataflowJobProjectID: jobProjectID,
 		DataflowLocation:     jobLocation,
 		DataflowJobID:        jobID,
@@ -236,8 +255,15 @@ func (h *Handler) notifyToSlack(ctx context.Context, jobProjectID, jobLocation, 
 		JobStartAt:           startAt,
 		JobElapsedTime:       elapsedTime,
 		QueueName:            h.checkJobQueue.Name,
-		Message:              "",
-	})
+		Message:              message,
+	}
+	if h.slackService == nil {
+		if err := json.NewEncoder(os.Stderr).Encode(msg); err != nil {
+			return err
+		}
+		return nil
+	}
+	err := h.slackService.PostMessageForDFRunJobNotify(ctx, h.slackChannelID, msg)
 	if err != nil {
 		return fmt.Errorf("failed slack.PostMessageForDFRunJobNotify: %w", err)
 	}
