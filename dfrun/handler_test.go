@@ -66,3 +66,29 @@ func TestHandler_LaunchJobRequest(t *testing.T) {
 	}
 	fmt.Println(string(respBody))
 }
+
+func TestHandler_LaunchJobRequest_Error(t *testing.T) {
+	cloudRunURI := os.Getenv("CLOUDRUN_URI")
+	if cloudRunURI == "" {
+		t.SkipNow()
+	}
+
+	r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/dfrun/launchJob", cloudRunURI), bytes.NewBuffer([]byte("")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Log(err)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("got %d, want %d", resp.StatusCode, http.StatusBadRequest)
+	}
+}

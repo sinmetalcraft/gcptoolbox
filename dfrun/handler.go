@@ -96,7 +96,7 @@ func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r 
 		fmt.Printf("invalid request body. %s\n", err)
 		if h.slackService != nil {
 			err := h.slackService.PostErrorMessage(ctx, h.slackChannelID, &slack.ErrorMessage{
-				Title:     "dfrun: Invalid Request Format",
+				Title:     "gcptoolbox-dfrun-launch-job: Invalid Request Format",
 				TitleLink: "",
 				Pretext:   "",
 				Text:      "Unable to submit Dataflow Job due to an invalid Body Format in the LaunchJob Request. Please check the Client sending the Request. In many cases, it is likely being executed from Cloud Scheduler.",
@@ -116,7 +116,7 @@ func (h *Handler) HandleLaunchJob(ctx context.Context, w http.ResponseWriter, r 
 		fmt.Printf("error launching spanner to avro on GCS job: %s\n", err)
 		if h.slackService != nil {
 			err := h.slackService.PostErrorMessage(ctx, h.slackChannelID, &slack.ErrorMessage{
-				Title:     "dfrun: Failed LaunchSpannerToAvroOnGCSJob",
+				Title:     "gcptoolbox-dfrun-launch-job: Failed LaunchSpannerToAvroOnGCSJob",
 				TitleLink: "",
 				Pretext:   "",
 				Text:      fmt.Sprintf("Failed to launch LaunchSpannerToAvroOnGCSJob. Please check the error details and resubmit the Dataflow Job if necessary.\nerr=%s", err),
