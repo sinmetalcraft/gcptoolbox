@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -14,11 +15,18 @@ type AppHandler interface {
 type HTTPResponse struct {
 	StatusCode int
 	Header     map[string]string
-	Body       interface{}
+	Body       any
 }
 
 type BasicErrorMessage struct {
 	Err error `json:"error"`
+}
+
+func (m *BasicErrorMessage) MarshalJSON() ([]byte, error) {
+	if m == nil || m.Err == nil {
+		return []byte(`{"error":""}`), nil
+	}
+	return []byte(fmt.Sprintf(`{"error":"%s"}`, m.Err.Error())), nil
 }
 
 func BaseHandler(handler AppHandler) http.Handler {

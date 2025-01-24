@@ -53,7 +53,7 @@ func (h *ExportHandler) Serve(ctx context.Context, w http.ResponseWriter, r *htt
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusBadRequest,
-			Body:       handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
+			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
 		}
 	}
 
@@ -61,7 +61,7 @@ func (h *ExportHandler) Serve(ctx context.Context, w http.ResponseWriter, r *htt
 	if err != nil {
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
-			Body:       handlers.BasicErrorMessage{Err: fmt.Errorf("failed get project id from metadata server")},
+			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("failed get project id from metadata server")},
 		}
 	}
 	if req.Project != "" {
@@ -71,14 +71,14 @@ func (h *ExportHandler) Serve(ctx context.Context, w http.ResponseWriter, r *htt
 	if err != nil {
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
-			Body:       handlers.BasicErrorMessage{Err: fmt.Errorf("failed create bigquery client. %w", err)},
+			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("failed create bigquery client. %w", err)},
 		}
 	}
 	s, err := NewService(ctx, bq)
 	if err != nil {
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
-			Body:       handlers.BasicErrorMessage{Err: fmt.Errorf("failed create BQ2GCS Service. %w", err)},
+			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("failed create BQ2GCS Service. %w", err)},
 		}
 	}
 
@@ -100,7 +100,7 @@ func (h *ExportHandler) Serve(ctx context.Context, w http.ResponseWriter, r *htt
 	if err != nil {
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
-			Body:       handlers.BasicErrorMessage{Err: fmt.Errorf("failed Export Tables. %w", err)},
+			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("failed Export Tables. %w", err)},
 		}
 	}
 
