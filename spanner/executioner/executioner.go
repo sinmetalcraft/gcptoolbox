@@ -22,8 +22,8 @@ func NewExecutioner(ctx context.Context, monitoringMetricCli *monitoring.MetricC
 	}
 }
 
-func (e *Executioner) Run(ctx context.Context, projectID string, database string) error {
-	countActiveAPIRequest, err := e.CountActiveAPIRequests(ctx, projectID, database, time.Now().Add(-90*24*time.Hour), time.Now().Add(-1*24*time.Hour))
+func (e *Executioner) Run(ctx context.Context, projectID string, instance string, database string) error {
+	countActiveAPIRequest, err := e.CountActiveAPIRequests(ctx, projectID, instance, database, time.Now().Add(-90*24*time.Hour), time.Now().Add(-1*24*time.Hour))
 	if err != nil {
 		return err
 	}
@@ -44,9 +44,9 @@ func (e *Executioner) Run(ctx context.Context, projectID string, database string
 }
 
 // CountActiveAPIRequests is DBが使われている形跡があるAPI Requestをmethodごとにカウントする
-func (e *Executioner) CountActiveAPIRequests(ctx context.Context, projectID string, database string, startTime time.Time, endTime time.Time) (map[string]int64, error) {
+func (e *Executioner) CountActiveAPIRequests(ctx context.Context, projectID string, instance string, database string, startTime time.Time, endTime time.Time) (map[string]int64, error) {
 	result := make(map[string]int64)
-	filter := fmt.Sprintf(`metric.type = "spanner.googleapis.com/api/api_request_count" AND metric.labels.database = "%s"`, database)
+	filter := fmt.Sprintf(`metric.type = "spanner.googleapis.com/api/api_request_count" AND resource.labels.instance_id = "%s" AND metric.labels.database = "%s"`, instance, database)
 
 	iter := e.monitoringMetricCli.ListTimeSeries(ctx, &monitoringpb.ListTimeSeriesRequest{
 		Name:   fmt.Sprintf("projects/%s", projectID),
@@ -123,7 +123,7 @@ func (e *Executioner) CountActiveAPIRequests(ctx context.Context, projectID stri
 			count += point.GetValue().GetInt64Value()
 			result[method] = count
 
-			// fmt.Printf("%s:%s %s %d\n", database, method, point.GetInterval().StartTime.AsTime(), point.GetValue().GetInt64Value())
+			// fmt.Printf("%v:%v:%s:%s %s %d\n", timeSeries.GetValueType(), timeSeries.GetResource(), database, method, point.GetInterval().StartTime.AsTime(), point.GetValue().GetInt64Value())
 		}
 	}
 	return result, nil

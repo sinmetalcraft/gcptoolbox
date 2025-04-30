@@ -15,8 +15,7 @@ func TestExecutioner_Run(t *testing.T) {
 	}
 	executioner := NewExecutioner(ctx, metricCli)
 
-	// TODO instance IDもFilter条件にいる気がする
-	if err := executioner.Run(ctx, "gcpug-public-spanner", "sinmetal"); err != nil {
+	if err := executioner.Run(ctx, "gcpug-public-spanner", "merpay-sponsored-instance", "sinmetal"); err != nil {
 		t.Fatal(err)
 	}
 }
