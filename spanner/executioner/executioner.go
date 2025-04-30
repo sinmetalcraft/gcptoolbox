@@ -12,6 +12,48 @@ import (
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// Config holds the configuration options.
+type Config struct {
+	// DryRun is 実際にはDBの削除は行わず、ログ出力だけとなる
+	DryRun bool
+
+	// StartTime is metricsをチェックする期間の開始時刻
+	StartTime time.Time
+
+	// EndTime is metricsをチェックする期間の終了時刻
+	EndTime time.Time
+
+	// ExcludeInstances is 対象外とするInstanceたち
+	ExcludeInstances []string
+
+	// ExcludedDatabases is 対象外とするDBたち
+	ExcludedDatabases []string
+}
+
+// Option is a function that modifies the Config.
+type Option func(*Config)
+
+// WithDryRun sets the DryRun option.
+func WithDryRun(dryRun bool) Option {
+	return func(cfg *Config) {
+		cfg.DryRun = dryRun
+	}
+}
+
+// WithStartTime sets the StartTime option.
+func WithStartTime(startTime time.Time) Option {
+	return func(cfg *Config) {
+		cfg.StartTime = startTime
+	}
+}
+
+// WithEndTime sets the EndTime option.
+func WithEndTime(endTime time.Time) Option {
+	return func(cfg *Config) {
+		cfg.EndTime = endTime
+	}
+}
+
 type Executioner struct {
 	monitoringMetricCli *monitoring.MetricClient
 }
@@ -22,8 +64,28 @@ func NewExecutioner(ctx context.Context, monitoringMetricCli *monitoring.MetricC
 	}
 }
 
-func (e *Executioner) Run(ctx context.Context, projectID string, instance string, database string) error {
-	countActiveAPIRequest, err := e.CountActiveAPIRequests(ctx, projectID, instance, database, time.Now().Add(-90*24*time.Hour), time.Now().Add(-1*24*time.Hour))
+// RunAllDatabases is 指定したSpanner InstanceのすべてのDBに実行する
+func (e *Executioner) RunAllDatabases(ctx context.Context, projectID string, instance string, options ...Option) error {
+	return nil
+}
+
+func (e *Executioner) Run(ctx context.Context, projectID string, instance string, database string, options ...Option) error {
+	now := time.Now()
+	cfg := &Config{
+		DryRun:    false,
+		StartTime: now.Add(-90 * 24 * time.Hour),
+		EndTime:   now.Add(-1 * 24 * time.Hour),
+	}
+
+	for _, option := range options {
+		option(cfg)
+	}
+
+	if cfg.StartTime.Sub(cfg.EndTime) >= 7*24*time.Hour {
+		return fmt.Errorf("StartTime and EndTime must be at least 7 days apart. StartTime: %s, EndTime: %s", cfg.StartTime, cfg.EndTime)
+	}
+
+	countActiveAPIRequest, err := e.CountActiveAPIRequests(ctx, projectID, instance, database, cfg.StartTime, cfg.EndTime)
 	if err != nil {
 		return err
 	}
@@ -34,6 +96,10 @@ func (e *Executioner) Run(ctx context.Context, projectID string, instance string
 	execution := e.IsExecution(ctx, countActiveAPIRequest, 1)
 	if execution {
 		fmt.Printf("Execute %s\n", database)
+		if cfg.DryRun {
+			return nil
+		}
+		// TODO Spanner Backup & DB Delete
 	} else {
 		fmt.Printf("Let %s go\n", database)
 	}

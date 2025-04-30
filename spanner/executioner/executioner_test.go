@@ -15,7 +15,7 @@ func TestExecutioner_Run(t *testing.T) {
 	}
 	executioner := NewExecutioner(ctx, metricCli)
 
-	if err := executioner.Run(ctx, "gcpug-public-spanner", "merpay-sponsored-instance", "sinmetal"); err != nil {
+	if err := executioner.Run(ctx, "gcpug-public-spanner", "merpay-sponsored-instance", "sinmetal", WithDryRun(true)); err != nil {
 		t.Fatal(err)
 	}
 }
