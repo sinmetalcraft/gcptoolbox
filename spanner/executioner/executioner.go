@@ -106,12 +106,10 @@ func (e *Executioner) Run(ctx context.Context, projectID string, instance string
 		if cfg.DryRun {
 			return nil
 		}
-		// TODO Spanner Backup & DB Delete
+		// TODO DB Delete
 	} else {
 		fmt.Printf("Let %s go\n", database)
 	}
-
-	time.Sleep(1 * time.Second)
 
 	return nil
 }
@@ -268,6 +266,8 @@ func (e *Executioner) DeleteDatabase(ctx context.Context, projectID string, inst
 
 	sts := ope.GetError()
 	fmt.Printf("sts: %v\n", sts)
+
+	// TODO Delete Database
 	return true, nil
 }
 

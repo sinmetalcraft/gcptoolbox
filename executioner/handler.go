@@ -72,6 +72,7 @@ func (h *Handler) Serve(ctx context.Context, w http.ResponseWriter, r *http.Requ
 type HeadRequest struct {
 	ProjectID  string
 	InstanceID string
+	DryRun     bool
 }
 
 // HandleHead is 一番最初に呼ぶHandler
@@ -103,6 +104,7 @@ func (h *Handler) HandleHead(ctx context.Context, w http.ResponseWriter, r *http
 				ProjectID:  req.ProjectID,
 				InstanceID: req.InstanceID,
 				DatabaseID: db,
+				DryRun:     req.DryRun,
 			},
 		}
 		_, err = h.taskService.CreateJsonPostTask(ctx, h.executionDBQueue, task)
@@ -122,6 +124,7 @@ type DeletePreparationRequest struct {
 	ProjectID  string
 	InstanceID string
 	DatabaseID string
+	DryRun     bool
 }
 
 func (h *Handler) HandleDeletePreparation(ctx context.Context, w http.ResponseWriter, r *http.Request) *handlers.HTTPResponse {
@@ -148,11 +151,12 @@ func (h *Handler) HandleDeletePreparation(ctx context.Context, w http.ResponseWr
 		RelativeURI:  fmt.Sprintf("%s%s", h.cloudRunURI, SpannerDatabaseDeletePath),
 		ScheduleTime: time.Now().Add(10 * time.Minute),
 		Deadline:     0,
-		Body: &DeleteDatabaseRequest{
+		Body: &ExecutionRequest{
 			ProjectID:                 req.ProjectID,
 			InstanceID:                req.InstanceID,
 			DatabaseID:                req.DatabaseID,
 			DatabaseBackupOperationID: ope.Name(),
+			DryRun:                    req.DryRun,
 		},
 	}
 	_, err = h.taskService.CreateJsonPostTask(ctx, h.deleteDBQueue, task)
@@ -167,15 +171,16 @@ func (h *Handler) HandleDeletePreparation(ctx context.Context, w http.ResponseWr
 	}
 }
 
-type DeleteDatabaseRequest struct {
+type ExecutionRequest struct {
 	ProjectID                 string
 	InstanceID                string
 	DatabaseID                string
 	DatabaseBackupOperationID string
+	DryRun                    bool
 }
 
-func (h *Handler) HandleDelete(ctx context.Context, w http.ResponseWriter, r *http.Request) *handlers.HTTPResponse {
-	var req *DeleteDatabaseRequest
+func (h *Handler) HandleExecution(ctx context.Context, w http.ResponseWriter, r *http.Request) *handlers.HTTPResponse {
+	var req *ExecutionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		fmt.Printf("invalid request body. %s\n", err)
 		return &handlers.HTTPResponse{
@@ -183,15 +188,13 @@ func (h *Handler) HandleDelete(ctx context.Context, w http.ResponseWriter, r *ht
 			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
 		}
 	}
-	done, err := h.spannerExecutioner.DeleteDatabase(ctx, req.ProjectID, req.InstanceID, req.DatabaseID, req.DatabaseBackupOperationID)
-	if err != nil {
+	if err := h.spannerExecutioner.Run(ctx, req.ProjectID, req.InstanceID, req.DatabaseID, scutioner.WithDryRun(req.DryRun)); err != nil {
+		fmt.Printf("error executing run. %s\n", err)
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
 		}
 	}
-	if !done {
-		// TODO もう一回
-	}
+
 	return &handlers.HTTPResponse{
 		StatusCode: http.StatusOK,
 	}
