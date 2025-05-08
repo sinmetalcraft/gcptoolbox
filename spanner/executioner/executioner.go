@@ -4,10 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	longrunningpb "cloud.google.com/go/longrunning/autogen/longrunningpb"
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	monitoringpb "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
+	database "cloud.google.com/go/spanner/admin/database/apiv1"
+	databasepb "cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
+	dbadminpb "cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	"google.golang.org/api/iterator"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -56,11 +61,13 @@ func WithEndTime(endTime time.Time) Option {
 
 type Executioner struct {
 	monitoringMetricCli *monitoring.MetricClient
+	dbAdminCli          *database.DatabaseAdminClient
 }
 
-func NewExecutioner(ctx context.Context, monitoringMetricCli *monitoring.MetricClient) *Executioner {
+func NewExecutioner(ctx context.Context, monitoringMetricCli *monitoring.MetricClient, dbAdminCli *database.DatabaseAdminClient) *Executioner {
 	return &Executioner{
 		monitoringMetricCli: monitoringMetricCli,
+		dbAdminCli:          dbAdminCli,
 	}
 }
 
@@ -226,4 +233,61 @@ func (e *Executioner) IsExecution(ctx context.Context, countActiveAPIRequests ma
 	}
 
 	return true
+}
+
+// CreateBackup is SpannerのBackupを作成する
+// Expireは364日後に固定にしているが、深い意味はない
+func (e *Executioner) CreateBackup(ctx context.Context, projectID string, instanceID string, databaseID string) (*database.CreateBackupOperation, error) {
+	backupID := fmt.Sprintf("%s-%s", databaseID, time.Now().Format("20060102"))
+	backupName := fmt.Sprintf("projects/%s/instances/%s/backups/%s", projectID, instanceID, backupID)
+	req := &dbadminpb.CreateBackupRequest{
+		Parent:   fmt.Sprintf("projects/%s/instances/%s", projectID, instanceID),
+		BackupId: backupName,
+		Backup: &dbadminpb.Backup{
+			Database:   databaseID,
+			ExpireTime: &timestamppb.Timestamp{Seconds: time.Now().Add(364 * 24 * time.Hour).Unix()},
+		},
+	}
+	ope, err := e.dbAdminCli.CreateBackup(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return ope, nil
+}
+
+func (e *Executioner) DeleteDatabase(ctx context.Context, projectID string, instanceID string, databaseID string, backupOperationName string) (bool, error) {
+	ope, err := e.dbAdminCli.GetOperation(ctx, &longrunningpb.GetOperationRequest{
+		Name: backupOperationName,
+	})
+	if err != nil {
+		return false, err
+	}
+	if !ope.Done {
+		return false, nil
+	}
+
+	sts := ope.GetError()
+	fmt.Printf("sts: %v\n", sts)
+	return true, nil
+}
+
+func (e *Executioner) ListDatabase(ctx context.Context, projectID string, instanceID string) ([]string, error) {
+	dbNamePrefix := fmt.Sprintf("projects/%s/instances/%s/databases/", projectID, instanceID)
+	var results []string
+	iter := e.dbAdminCli.ListDatabases(ctx, &databasepb.ListDatabasesRequest{
+		Parent:    fmt.Sprintf("projects/%s/instances/%s", projectID, instanceID),
+		PageSize:  0,
+		PageToken: "",
+	})
+	for {
+		db, err := iter.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, strings.ReplaceAll(db.GetName(), dbNamePrefix, ""))
+	}
+	return results, nil
 }

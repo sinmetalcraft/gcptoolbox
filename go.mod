@@ -6,7 +6,9 @@ require (
 	cloud.google.com/go/bigquery v1.65.0
 	cloud.google.com/go/cloudtasks v1.13.2
 	cloud.google.com/go/dataflow v0.10.2
+	cloud.google.com/go/longrunning v0.6.2
 	cloud.google.com/go/monitoring v1.22.0
+	cloud.google.com/go/spanner v1.73.0
 	cloud.google.com/go/storage v1.49.0
 	github.com/apstndb/adcplus v0.0.0-20210615091706-c0983920581f
 	github.com/google/uuid v1.6.0
