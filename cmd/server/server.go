@@ -115,7 +115,6 @@ func Run(ctx context.Context, port string) error {
 			return fmt.Errorf("failed to create executioner: %v", err)
 		}
 		http.Handle("/executioner/", handlers.BaseHandler(handler))
-		return nil
 	}
 
 	// Start HTTP server.
