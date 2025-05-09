@@ -12,6 +12,7 @@ import (
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	cloudtasksbox "github.com/sinmetalcraft/gcpbox/cloudtasks"
+	metadatabox2 "github.com/sinmetalcraft/gcpbox/metadata"
 	metadatabox "github.com/sinmetalcraft/gcpbox/metadata/cloudrun"
 	"github.com/sinmetalcraft/gcptoolbox/bq2gcs"
 	"github.com/sinmetalcraft/gcptoolbox/dfrun"
@@ -46,6 +47,17 @@ func Run(ctx context.Context, port string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get region: %v", err)
 	}
+	fmt.Printf("gcptoolbox region %s\n", region)
+	r1, err := metadatabox2.Region()
+	if err != nil {
+		return fmt.Errorf("failed to get region: %v", err)
+	}
+	fmt.Printf("gcptoolbox2 region %s\n", r1)
+	zone, err := metadatabox2.Zone()
+	if err != nil {
+		return fmt.Errorf("failed to get zone: %v", err)
+	}
+	fmt.Printf("gcptoolbox2 zone %s\n", zone)
 
 	var tasksCli *cloudtasks.Client
 	var tasksService *cloudtasksbox.Service

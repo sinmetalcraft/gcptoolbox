@@ -10,7 +10,7 @@ require (
 	cloud.google.com/go/monitoring v1.22.0
 	cloud.google.com/go/spanner v1.73.0
 	cloud.google.com/go/storage v1.49.0
-	github.com/apstndb/adcplus v0.0.0-20210615091706-c0983920581f
+	github.com/apstndb/adcplus v0.0.0-20241227140857-9f127090f91c
 	github.com/google/uuid v1.6.0
 	github.com/k0kubun/pp v3.0.1+incompatible
 	github.com/sinmetalcraft/gcpbox v1.24.0
