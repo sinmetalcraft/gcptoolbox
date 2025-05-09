@@ -15,8 +15,9 @@ import (
 )
 
 const (
+	SpannerDatabaseHeadPath              = "/executioner/spanner/database/head"
 	SpannerDatabaseDeletePreparationPath = "/executioner/spanner/database/deletePreparation"
-	SpannerDatabaseDeletePath            = "/executioner/spanner/database/delete"
+	SpannerDatabaseExecutionPath         = "/executioner/spanner/database/execution"
 )
 
 type Handler struct {
@@ -58,10 +59,12 @@ func NewHandler(ctx context.Context, spannerExecutioner *scutioner.Executioner, 
 
 func (h *Handler) Serve(ctx context.Context, w http.ResponseWriter, r *http.Request) *handlers.HTTPResponse {
 	switch {
+	case strings.HasPrefix(r.URL.Path, SpannerDatabaseHeadPath):
+		return h.HandleHead(ctx, w, r)
 	case strings.HasPrefix(r.URL.Path, SpannerDatabaseDeletePreparationPath):
-		return nil
-	case strings.HasPrefix(r.URL.Path, SpannerDatabaseDeletePath):
-		return nil
+		return h.HandleDeletePreparation(ctx, w, r)
+	case strings.HasPrefix(r.URL.Path, SpannerDatabaseExecutionPath):
+		return h.HandleExecution(ctx, w, r)
 	default:
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusNotFound,
@@ -148,7 +151,7 @@ func (h *Handler) HandleDeletePreparation(ctx context.Context, w http.ResponseWr
 
 	task := &cloudtasksbox.JsonPostTask{
 		Audience:     h.cloudRunURI,
-		RelativeURI:  fmt.Sprintf("%s%s", h.cloudRunURI, SpannerDatabaseDeletePath),
+		RelativeURI:  fmt.Sprintf("%s%s", h.cloudRunURI, SpannerDatabaseExecutionPath),
 		ScheduleTime: time.Now().Add(10 * time.Minute),
 		Deadline:     0,
 		Body: &ExecutionRequest{
