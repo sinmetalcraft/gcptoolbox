@@ -140,12 +140,18 @@ func (h *Handler) HandleDeletePreparation(ctx context.Context, w http.ResponseWr
 		}
 	}
 
-	ope, err := h.spannerExecutioner.CreateBackup(ctx, req.ProjectID, req.InstanceID, req.DatabaseID)
+	ope, isExecution, err := h.spannerExecutioner.CreateBackup(ctx, req.ProjectID, req.InstanceID, req.DatabaseID)
 	if err != nil {
 		// TODO DB BackupIDが重複している場合はエラーにしなくていい
 		fmt.Printf("error creating backup operation. projects/%s/instances/%s/databases/%s %s\n", req.ProjectID, req.InstanceID, req.DatabaseID, err)
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
+		}
+	}
+	if !isExecution {
+		fmt.Printf("projects/%s/instances/%s/databases/%s is not execution target\n", req.ProjectID, req.InstanceID, req.DatabaseID)
+		return &handlers.HTTPResponse{
+			StatusCode: http.StatusOK,
 		}
 	}
 
