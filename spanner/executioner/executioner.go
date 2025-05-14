@@ -178,6 +178,8 @@ func (e *Executioner) CountActiveAPIRequests(ctx context.Context, projectID stri
 			continue
 		case "ListBackupSchedules":
 			continue
+		case "CreateBackup":
+			continue
 		default:
 			fmt.Printf("method:%s\n", method)
 		}
