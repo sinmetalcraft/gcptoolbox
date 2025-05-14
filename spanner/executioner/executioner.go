@@ -92,15 +92,13 @@ func (e *Executioner) Run(ctx context.Context, projectID string, instance string
 		return fmt.Errorf("StartTime and EndTime must be at least 7 days apart. StartTime: %s, EndTime: %s", cfg.StartTime, cfg.EndTime)
 	}
 
-	countActiveAPIRequest, err := e.CountActiveAPIRequests(ctx, projectID, instance, database, cfg.StartTime, cfg.EndTime)
+	execution, countActiveAPIRequest, err := e.IsExecution(ctx, projectID, instance, database, cfg.StartTime, cfg.EndTime, 1)
 	if err != nil {
 		return err
 	}
 	for k, v := range countActiveAPIRequest {
 		fmt.Printf("%s:%d\n", k, v)
 	}
-
-	execution := e.IsExecution(ctx, countActiveAPIRequest, 1)
 	if execution {
 		fmt.Printf("Execute %s\n", database)
 		if cfg.DryRun {
@@ -203,11 +201,16 @@ func (e *Executioner) CountActiveAPIRequests(ctx context.Context, projectID stri
 // IsExecution is 削除対象にするかどうかの判定
 //
 // 利用されている形跡がない場合、削除対象にする
-func (e *Executioner) IsExecution(ctx context.Context, countActiveAPIRequests map[string]int64, survivalThreshold int) bool {
+func (e *Executioner) IsExecution(ctx context.Context, projectID string, instance string, database string, startTime time.Time, endTime time.Time, survivalThreshold int) (isExecution bool, countActiveAPIRequests map[string]int64, err error) {
+	countActiveAPIRequests, err = e.CountActiveAPIRequests(ctx, projectID, instance, database, startTime, endTime)
+	if err != nil {
+		return false, nil, err
+	}
+
 	_, ok := countActiveAPIRequests["CreateDatabase"]
 	if ok {
 		// 期間内に作成されたDBは維持
-		return false
+		return false, countActiveAPIRequests, nil
 	}
 
 	survivalMethods := []string{
@@ -226,16 +229,39 @@ func (e *Executioner) IsExecution(ctx context.Context, countActiveAPIRequests ma
 			continue
 		}
 		if v >= int64(survivalThreshold) {
-			return false
+			return false, countActiveAPIRequests, nil
 		}
 	}
 
-	return true
+	return true, countActiveAPIRequests, nil
 }
 
-// CreateBackup is SpannerのBackupを作成する
+// CreateBackup is 対象のDBがExecution対象の場合、SpannerのBackupを作成する
 // Expireは364日後に固定にしているが、深い意味はない
-func (e *Executioner) CreateBackup(ctx context.Context, projectID string, instanceID string, databaseID string) (*database.CreateBackupOperation, error) {
+func (e *Executioner) CreateBackup(ctx context.Context, projectID string, instanceID string, databaseID string, options ...Option) (ope *database.CreateBackupOperation, isExecution bool, err error) {
+	now := time.Now()
+	cfg := &Config{
+		DryRun:    false,
+		StartTime: now.Add(-90 * 24 * time.Hour),
+		EndTime:   now.Add(-1 * 24 * time.Hour),
+	}
+
+	for _, option := range options {
+		option(cfg)
+	}
+
+	if cfg.StartTime.Sub(cfg.EndTime) >= 7*24*time.Hour {
+		return nil, false, fmt.Errorf("StartTime and EndTime must be at least 7 days apart. StartTime: %s, EndTime: %s", cfg.StartTime, cfg.EndTime)
+	}
+
+	execution, _, err := e.IsExecution(ctx, projectID, instanceID, databaseID, cfg.StartTime, cfg.EndTime, 1)
+	if err != nil {
+		return nil, false, err
+	}
+	if !execution {
+		return nil, false, nil
+	}
+
 	backupID := fmt.Sprintf("%s-%s", databaseID, time.Now().Format("20060102"))
 	req := &dbadminpb.CreateBackupRequest{
 		Parent:   fmt.Sprintf("projects/%s/instances/%s", projectID, instanceID),
@@ -245,11 +271,15 @@ func (e *Executioner) CreateBackup(ctx context.Context, projectID string, instan
 			ExpireTime: &timestamppb.Timestamp{Seconds: time.Now().Add(364 * 24 * time.Hour).Unix()},
 		},
 	}
-	ope, err := e.dbAdminCli.CreateBackup(ctx, req)
-	if err != nil {
-		return nil, err
+	if cfg.DryRun {
+		fmt.Printf("dry-run: creating backup %s\n", backupID)
+		return nil, false, nil
 	}
-	return ope, nil
+	ope, err = e.dbAdminCli.CreateBackup(ctx, req)
+	if err != nil {
+		return nil, false, err
+	}
+	return ope, true, nil
 }
 
 func (e *Executioner) DeleteDatabase(ctx context.Context, projectID string, instanceID string, databaseID string, backupOperationName string) (bool, error) {

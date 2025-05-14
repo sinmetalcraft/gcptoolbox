@@ -53,8 +53,6 @@ func TestExecutioner_ListDatabase(t *testing.T) {
 func TestExecutioner_CreateBackup(t *testing.T) {
 	ctx := t.Context()
 
-	t.SkipNow()
-
 	metricCli, err := monitoring.NewMetricClient(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -66,9 +64,13 @@ func TestExecutioner_CreateBackup(t *testing.T) {
 
 	executioner := NewExecutioner(ctx, metricCli, dbAdminCli)
 
-	ope, err := executioner.CreateBackup(ctx, "gcpug-public-spanner", "merpay-sponsored-instance", "sinmetal")
+	ope, execution, err := executioner.CreateBackup(ctx, "gcpug-public-spanner", "merpay-sponsored-instance", "sinmetal")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !execution {
+		t.Log("not execution")
+		return
 	}
 	fmt.Println(ope.Name())
 }
