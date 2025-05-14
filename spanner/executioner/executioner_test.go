@@ -1,6 +1,7 @@
 package executioner
 
 import (
+	"fmt"
 	"testing"
 
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
@@ -47,4 +48,27 @@ func TestExecutioner_ListDatabase(t *testing.T) {
 	for _, db := range dbs {
 		t.Log(db)
 	}
+}
+
+func TestExecutioner_CreateBackup(t *testing.T) {
+	ctx := t.Context()
+
+	t.SkipNow()
+
+	metricCli, err := monitoring.NewMetricClient(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbAdminCli, err := database.NewDatabaseAdminClient(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	executioner := NewExecutioner(ctx, metricCli, dbAdminCli)
+
+	ope, err := executioner.CreateBackup(ctx, "gcpug-public-spanner", "merpay-sponsored-instance", "sinmetal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(ope.Name())
 }

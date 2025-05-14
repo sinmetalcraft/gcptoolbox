@@ -237,12 +237,11 @@ func (e *Executioner) IsExecution(ctx context.Context, countActiveAPIRequests ma
 // Expireは364日後に固定にしているが、深い意味はない
 func (e *Executioner) CreateBackup(ctx context.Context, projectID string, instanceID string, databaseID string) (*database.CreateBackupOperation, error) {
 	backupID := fmt.Sprintf("%s-%s", databaseID, time.Now().Format("20060102"))
-	backupName := fmt.Sprintf("projects/%s/instances/%s/backups/%s", projectID, instanceID, backupID)
 	req := &dbadminpb.CreateBackupRequest{
 		Parent:   fmt.Sprintf("projects/%s/instances/%s", projectID, instanceID),
-		BackupId: backupName,
+		BackupId: backupID,
 		Backup: &dbadminpb.Backup{
-			Database:   databaseID,
+			Database:   fmt.Sprintf("projects/%s/instances/%s/databases/%s", projectID, instanceID, databaseID),
 			ExpireTime: &timestamppb.Timestamp{Seconds: time.Now().Add(364 * 24 * time.Hour).Unix()},
 		},
 	}
