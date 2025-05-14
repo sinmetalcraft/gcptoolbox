@@ -154,7 +154,7 @@ func (h *Handler) HandleDeletePreparation(ctx context.Context, w http.ResponseWr
 			StatusCode: http.StatusOK,
 		}
 	}
-	fmt.Printf("create backup ope %s projects/%s/instances/%s/databases/%s", ope.Name(), req.ProjectID, req.InstanceID, req.DatabaseID)
+	fmt.Printf("create backup ope %s projects/%s/instances/%s/databases/%s\n", ope.Name(), req.ProjectID, req.InstanceID, req.DatabaseID)
 
 	task := &cloudtasksbox.JsonPostTask{
 		Audience:     h.cloudRunURI,
