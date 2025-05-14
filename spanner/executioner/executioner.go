@@ -280,13 +280,13 @@ func (e *Executioner) CreateBackup(ctx context.Context, projectID string, instan
 	}
 	if cfg.DryRun {
 		fmt.Printf("dry-run: creating backup %s\n", backupID)
-		return nil, false, nil
+		return nil, execution, nil
 	}
 	ope, err = e.dbAdminCli.CreateBackup(ctx, req)
 	if err != nil {
-		return nil, false, err
+		return nil, execution, err
 	}
-	return ope, true, nil
+	return ope, execution, nil
 }
 
 func (e *Executioner) DeleteDatabase(ctx context.Context, projectID string, instanceID string, databaseID string, backupOperationName string) (bool, error) {
