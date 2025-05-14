@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/googleapis/gax-go/v2/apierror"
 	cloudtasksbox "github.com/sinmetalcraft/gcpbox/cloudtasks"
 	metadatabox "github.com/sinmetalcraft/gcpbox/metadata"
 	"github.com/sinmetalcraft/gcptoolbox/handlers"
@@ -143,9 +144,17 @@ func (h *Handler) HandleDeletePreparation(ctx context.Context, w http.ResponseWr
 	ope, isExecution, err := h.spannerExecutioner.CreateBackup(ctx, req.ProjectID, req.InstanceID, req.DatabaseID)
 	if err != nil {
 		// TODO DB BackupIDが重複している場合はエラーにしなくていい
-		fmt.Printf("error creating backup operation. projects/%s/instances/%s/databases/%s %s\n", req.ProjectID, req.InstanceID, req.DatabaseID, err)
-		return &handlers.HTTPResponse{
-			StatusCode: http.StatusInternalServerError,
+		apiErr, ok := apierror.FromError(err)
+		if ok {
+			fmt.Printf("failed Create Backup %#v\n", apiErr)
+			return &handlers.HTTPResponse{
+				StatusCode: http.StatusInternalServerError,
+			}
+		} else {
+			fmt.Printf("error creating backup operation. projects/%s/instances/%s/databases/%s %s\n", req.ProjectID, req.InstanceID, req.DatabaseID, err)
+			return &handlers.HTTPResponse{
+				StatusCode: http.StatusInternalServerError,
+			}
 		}
 	}
 	if !isExecution {
