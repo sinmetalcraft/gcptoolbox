@@ -13,6 +13,7 @@ import (
 	metadatabox "github.com/sinmetalcraft/gcpbox/metadata"
 	"github.com/sinmetalcraft/gcptoolbox/handlers"
 	scutioner "github.com/sinmetalcraft/gcptoolbox/spanner/executioner"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -143,20 +144,17 @@ func (h *Handler) HandleDeletePreparation(ctx context.Context, w http.ResponseWr
 
 	ope, isExecution, err := h.spannerExecutioner.CreateBackup(ctx, req.ProjectID, req.InstanceID, req.DatabaseID)
 	if err != nil {
-		// TODO DB BackupIDが重複している場合はエラーにしなくていい
 		apiErr, ok := apierror.FromError(err)
-		if ok {
-			fmt.Printf("failed Create Backup %#v\n", apiErr)
-			return &handlers.HTTPResponse{
-				StatusCode: http.StatusInternalServerError,
-			}
-		} else {
-			fmt.Printf("error creating backup operation. projects/%s/instances/%s/databases/%s %s\n", req.ProjectID, req.InstanceID, req.DatabaseID, err)
-			return &handlers.HTTPResponse{
-				StatusCode: http.StatusInternalServerError,
-			}
+		if ok && codes.AlreadyExists == apiErr.GRPCStatus().Code() {
+			// すでにBackupがあるので、そのままExecution判定処理に進んでいく
+			goto DeletePreparation
+		}
+		fmt.Printf("error creating backup operation. projects/%s/instances/%s/databases/%s %s\n", req.ProjectID, req.InstanceID, req.DatabaseID, err)
+		return &handlers.HTTPResponse{
+			StatusCode: http.StatusInternalServerError,
 		}
 	}
+DeletePreparation:
 	if !isExecution {
 		fmt.Printf("projects/%s/instances/%s/databases/%s is not execution target\n", req.ProjectID, req.InstanceID, req.DatabaseID)
 		return &handlers.HTTPResponse{
