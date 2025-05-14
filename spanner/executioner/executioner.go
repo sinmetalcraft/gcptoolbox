@@ -76,7 +76,7 @@ func (e *Executioner) RunAllDatabases(ctx context.Context, projectID string, ins
 	return nil
 }
 
-func (e *Executioner) Run(ctx context.Context, projectID string, instance string, database string, options ...Option) error {
+func (e *Executioner) Run(ctx context.Context, projectID string, instanceID string, databaseID string, backupOperation string, options ...Option) error {
 	now := time.Now()
 	cfg := &Config{
 		DryRun:    false,
@@ -92,7 +92,7 @@ func (e *Executioner) Run(ctx context.Context, projectID string, instance string
 		return fmt.Errorf("StartTime and EndTime must be at least 7 days apart. StartTime: %s, EndTime: %s", cfg.StartTime, cfg.EndTime)
 	}
 
-	execution, countActiveAPIRequest, err := e.IsExecution(ctx, projectID, instance, database, cfg.StartTime, cfg.EndTime, 1)
+	execution, countActiveAPIRequest, err := e.IsExecution(ctx, projectID, instanceID, databaseID, cfg.StartTime, cfg.EndTime, 1)
 	if err != nil {
 		return err
 	}
@@ -100,13 +100,17 @@ func (e *Executioner) Run(ctx context.Context, projectID string, instance string
 		fmt.Printf("%s:%d\n", k, v)
 	}
 	if execution {
-		fmt.Printf("Execute %s\n", database)
+		fmt.Printf("Execute %s\n", databaseID)
 		if cfg.DryRun {
 			return nil
 		}
-		// TODO DB Delete
+
+		_, err = e.DeleteDatabase(ctx, projectID, instanceID, databaseID, backupOperation)
+		if err != nil {
+			return err
+		}
 	} else {
-		fmt.Printf("Let %s go\n", database)
+		fmt.Printf("Let %s go\n", databaseID)
 	}
 
 	return nil
@@ -295,8 +299,16 @@ func (e *Executioner) DeleteDatabase(ctx context.Context, projectID string, inst
 
 	sts := ope.GetError()
 	fmt.Printf("sts: %v\n", sts)
+	if sts != nil {
+		return false, nil
+	}
 
-	// TODO Delete Database
+	err = e.dbAdminCli.DeleteOperation(ctx, &longrunningpb.DeleteOperationRequest{
+		Name: fmt.Sprintf("projects/%s/instances/%s/databases/%s", projectID, instanceID, databaseID),
+	})
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

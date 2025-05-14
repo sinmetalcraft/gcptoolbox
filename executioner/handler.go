@@ -205,7 +205,7 @@ func (h *Handler) HandleExecution(ctx context.Context, w http.ResponseWriter, r 
 			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
 		}
 	}
-	if err := h.spannerExecutioner.Run(ctx, req.ProjectID, req.InstanceID, req.DatabaseID, scutioner.WithDryRun(req.DryRun)); err != nil {
+	if err := h.spannerExecutioner.Run(ctx, req.ProjectID, req.InstanceID, req.DatabaseID, req.DatabaseBackupOperationID, scutioner.WithDryRun(req.DryRun)); err != nil {
 		fmt.Printf("error executing run. %s\n", err)
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,
