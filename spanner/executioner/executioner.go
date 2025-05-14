@@ -260,11 +260,12 @@ func (e *Executioner) CreateBackup(ctx context.Context, projectID string, instan
 		return nil, false, fmt.Errorf("StartTime and EndTime must be at least 7 days apart. StartTime: %s, EndTime: %s", cfg.StartTime, cfg.EndTime)
 	}
 
-	execution, _, err := e.IsExecution(ctx, projectID, instanceID, databaseID, cfg.StartTime, cfg.EndTime, 1)
+	execution, apiCounts, err := e.IsExecution(ctx, projectID, instanceID, databaseID, cfg.StartTime, cfg.EndTime, 1)
 	if err != nil {
 		return nil, false, err
 	}
 	if !execution {
+		fmt.Printf("not execution: projects/%s/instances/%s/database/%s %#v", projectID, instanceID, databaseID, apiCounts)
 		return nil, false, nil
 	}
 
