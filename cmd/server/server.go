@@ -11,6 +11,7 @@ import (
 	dataflow "cloud.google.com/go/dataflow/apiv1beta3"
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
+	"cloud.google.com/go/storage"
 	cloudtasksbox "github.com/sinmetalcraft/gcpbox/cloudtasks"
 	metadatabox2 "github.com/sinmetalcraft/gcpbox/metadata"
 	metadatabox "github.com/sinmetalcraft/gcpbox/metadata/cloudrun"
@@ -121,7 +122,16 @@ func Run(ctx context.Context, port string) error {
 			return fmt.Errorf("failed to create db admin client: %v", err)
 		}
 
-		exe := executioner.NewExecutioner(ctx, metricCli, dbAdminCli)
+		var gcsCli *storage.Client
+		iamBackupBucket := os.Getenv("GCPTOOLBOX_IAM_BACKUP_BUCKET")
+		if iamBackupBucket != "" {
+			fmt.Printf("IAM Backup Bucket is %s\n", iamBackupBucket)
+			gcsCli, err = storage.NewClient(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to create storage client: %v", err)
+			}
+		}
+		exe := executioner.NewExecutioner(ctx, metricCli, dbAdminCli, gcsCli, iamBackupBucket)
 		handler, err := exehandler.NewHandler(ctx, exe, tasksService, cloudRunURI, region)
 		if err != nil {
 			return fmt.Errorf("failed to create executioner: %v", err)

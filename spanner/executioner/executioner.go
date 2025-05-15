@@ -2,17 +2,20 @@ package executioner
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"cloud.google.com/go/iam/apiv1/iampb"
 	longrunningpb "cloud.google.com/go/longrunning/autogen/longrunningpb"
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	monitoringpb "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	databasepb "cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	dbadminpb "cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
+	"cloud.google.com/go/storage"
 	"google.golang.org/api/iterator"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -62,12 +65,16 @@ func WithEndTime(endTime time.Time) Option {
 type Executioner struct {
 	monitoringMetricCli *monitoring.MetricClient
 	dbAdminCli          *database.DatabaseAdminClient
+	gcsCli              *storage.Client
+	iamBackupBucket     string
 }
 
-func NewExecutioner(ctx context.Context, monitoringMetricCli *monitoring.MetricClient, dbAdminCli *database.DatabaseAdminClient) *Executioner {
+func NewExecutioner(ctx context.Context, monitoringMetricCli *monitoring.MetricClient, dbAdminCli *database.DatabaseAdminClient, gcsCli *storage.Client, iamBackupBucket string) *Executioner {
 	return &Executioner{
 		monitoringMetricCli: monitoringMetricCli,
 		dbAdminCli:          dbAdminCli,
+		gcsCli:              gcsCli,
+		iamBackupBucket:     iamBackupBucket,
 	}
 }
 
@@ -269,6 +276,11 @@ func (e *Executioner) CreateBackup(ctx context.Context, projectID string, instan
 		return nil, false, nil
 	}
 
+	_, err = e.ExportIamPolicy(ctx, projectID, instanceID, databaseID)
+	if err != nil {
+		return nil, execution, fmt.Errorf("failed ExportIamPolicy: %w", err)
+	}
+
 	backupID := fmt.Sprintf("%s-%s", databaseID, time.Now().Format("20060102"))
 	req := &dbadminpb.CreateBackupRequest{
 		Parent:   fmt.Sprintf("projects/%s/instances/%s", projectID, instanceID),
@@ -334,4 +346,38 @@ func (e *Executioner) ListDatabase(ctx context.Context, projectID string, instan
 		results = append(results, strings.ReplaceAll(db.GetName(), dbNamePrefix, ""))
 	}
 	return results, nil
+}
+
+// ExportIamPolicy is 対象のDBのIamをCloud Storageに出力する
+// 単純にJsonにして出力しているので、Importできることは保証しておらず、人間が目で見て、IAMを直せば良いかなと思っている
+func (e *Executioner) ExportIamPolicy(ctx context.Context, projectID string, instanceID string, databaseID string) (exported bool, err error) {
+	if e.gcsCli == nil {
+		return false, nil
+	}
+
+	v, err := e.dbAdminCli.GetIamPolicy(ctx, &iampb.GetIamPolicyRequest{
+		Resource: fmt.Sprintf("projects/%s/instances/%s/databases/%s", projectID, instanceID, databaseID),
+		Options:  nil,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed GetIamPolicy: %w", err)
+	}
+	bindings := v.GetBindings()
+	j, err := json.Marshal(bindings)
+	if err != nil {
+		return false, fmt.Errorf("failed json.Marshal: %w", err)
+	}
+
+	objectPath := fmt.Sprintf("%s/%s/%s/%s.json", projectID, instanceID, databaseID, time.Now().Format("20060102"))
+	w := e.gcsCli.Bucket(e.iamBackupBucket).Object(objectPath).NewWriter(ctx)
+	defer func() {
+		if err := w.Close(); err != nil {
+			fmt.Printf("failed Close writer: %v\n", err)
+		}
+	}()
+	_, err = w.Write(j)
+	if err != nil {
+		return false, fmt.Errorf("failed WriteObject: %w", err)
+	}
+	return true, nil
 }
