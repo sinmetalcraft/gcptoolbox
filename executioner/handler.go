@@ -142,11 +142,13 @@ func (h *Handler) HandleDeletePreparation(ctx context.Context, w http.ResponseWr
 		}
 	}
 
+	var dbBackupExist bool
 	ope, isExecution, err := h.spannerExecutioner.CreateBackup(ctx, req.ProjectID, req.InstanceID, req.DatabaseID)
 	if err != nil {
 		apiErr, ok := apierror.FromError(err)
 		if ok && codes.AlreadyExists == apiErr.GRPCStatus().Code() {
 			// すでにBackupがあるので、そのままExecution判定処理に進んでいく
+			dbBackupExist = true
 			goto DeletePreparation
 		}
 		fmt.Printf("error creating backup operation. projects/%s/instances/%s/databases/%s %s\n", req.ProjectID, req.InstanceID, req.DatabaseID, err)
@@ -161,7 +163,11 @@ DeletePreparation:
 			StatusCode: http.StatusOK,
 		}
 	}
-	fmt.Printf("create backup ope %s projects/%s/instances/%s/databases/%s\n", ope.Name(), req.ProjectID, req.InstanceID, req.DatabaseID)
+	var opeName string
+	if ope != nil {
+		fmt.Printf("create backup ope %s projects/%s/instances/%s/databases/%s\n", ope.Name(), req.ProjectID, req.InstanceID, req.DatabaseID)
+		opeName = ope.Name()
+	}
 
 	task := &cloudtasksbox.JsonPostTask{
 		Audience:     h.cloudRunURI,
@@ -172,7 +178,8 @@ DeletePreparation:
 			ProjectID:                 req.ProjectID,
 			InstanceID:                req.InstanceID,
 			DatabaseID:                req.DatabaseID,
-			DatabaseBackupOperationID: ope.Name(),
+			DatabaseBackupOperationID: opeName,
+			DatabaseBackupExist:       dbBackupExist,
 			DryRun:                    req.DryRun,
 		},
 	}
@@ -193,6 +200,7 @@ type ExecutionRequest struct {
 	InstanceID                string
 	DatabaseID                string
 	DatabaseBackupOperationID string
+	DatabaseBackupExist       bool
 	DryRun                    bool
 }
 
@@ -205,7 +213,7 @@ func (h *Handler) HandleExecution(ctx context.Context, w http.ResponseWriter, r 
 			Body:       &handlers.BasicErrorMessage{Err: fmt.Errorf("invalid json body")},
 		}
 	}
-	if err := h.spannerExecutioner.Run(ctx, req.ProjectID, req.InstanceID, req.DatabaseID, req.DatabaseBackupOperationID, scutioner.WithDryRun(req.DryRun)); err != nil {
+	if err := h.spannerExecutioner.Run(ctx, req.ProjectID, req.InstanceID, req.DatabaseID, req.DatabaseBackupOperationID, req.DatabaseBackupExist, scutioner.WithDryRun(req.DryRun)); err != nil {
 		fmt.Printf("error executing run. %s\n", err)
 		return &handlers.HTTPResponse{
 			StatusCode: http.StatusInternalServerError,

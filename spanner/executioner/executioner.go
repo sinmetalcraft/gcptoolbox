@@ -83,7 +83,7 @@ func (e *Executioner) RunAllDatabases(ctx context.Context, projectID string, ins
 	return nil
 }
 
-func (e *Executioner) Run(ctx context.Context, projectID string, instanceID string, databaseID string, backupOperation string, options ...Option) error {
+func (e *Executioner) Run(ctx context.Context, projectID string, instanceID string, databaseID string, backupOperation string, dbBackupExist bool, options ...Option) error {
 	now := time.Now()
 	cfg := &Config{
 		DryRun:    false,
@@ -112,7 +112,7 @@ func (e *Executioner) Run(ctx context.Context, projectID string, instanceID stri
 			return nil
 		}
 
-		_, err = e.DeleteDatabase(ctx, projectID, instanceID, databaseID, backupOperation)
+		_, err = e.DeleteDatabase(ctx, projectID, instanceID, databaseID, backupOperation, dbBackupExist)
 		if err != nil {
 			return err
 		}
@@ -301,24 +301,26 @@ func (e *Executioner) CreateBackup(ctx context.Context, projectID string, instan
 	return ope, execution, nil
 }
 
-func (e *Executioner) DeleteDatabase(ctx context.Context, projectID string, instanceID string, databaseID string, backupOperationName string) (bool, error) {
-	ope, err := e.dbAdminCli.GetOperation(ctx, &longrunningpb.GetOperationRequest{
-		Name: backupOperationName,
-	})
-	if err != nil {
-		return false, err
-	}
-	if !ope.Done {
-		return false, nil
+func (e *Executioner) DeleteDatabase(ctx context.Context, projectID string, instanceID string, databaseID string, backupOperationName string, dbBackupExist bool) (bool, error) {
+	if !dbBackupExist {
+		ope, err := e.dbAdminCli.GetOperation(ctx, &longrunningpb.GetOperationRequest{
+			Name: backupOperationName,
+		})
+		if err != nil {
+			return false, err
+		}
+		if !ope.Done {
+			return false, nil
+		}
+
+		sts := ope.GetError()
+		fmt.Printf("sts: %v\n", sts)
+		if sts != nil {
+			return false, nil
+		}
 	}
 
-	sts := ope.GetError()
-	fmt.Printf("sts: %v\n", sts)
-	if sts != nil {
-		return false, nil
-	}
-
-	err = e.dbAdminCli.DeleteOperation(ctx, &longrunningpb.DeleteOperationRequest{
+	err := e.dbAdminCli.DeleteOperation(ctx, &longrunningpb.DeleteOperationRequest{
 		Name: fmt.Sprintf("projects/%s/instances/%s/databases/%s", projectID, instanceID, databaseID),
 	})
 	if err != nil {
