@@ -16,7 +16,7 @@ func TestExecutioner_Run(t *testing.T) {
 	executioner := newExecutionerForTest(ctx, t)
 
 	// FIXME: backupOperationをどうするか
-	if err := executioner.Run(ctx, "gcpug-public-spanner", "merpay-sponsored-instance", "sinmetal", "", WithDryRun(true)); err != nil {
+	if err := executioner.Run(ctx, "gcpug-public-spanner", "merpay-sponsored-instance", "sinmetal", "", true, WithDryRun(true)); err != nil {
 		t.Fatal(err)
 	}
 }
