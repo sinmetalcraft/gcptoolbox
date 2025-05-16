@@ -320,8 +320,8 @@ func (e *Executioner) DeleteDatabase(ctx context.Context, projectID string, inst
 		}
 	}
 
-	err := e.dbAdminCli.DeleteOperation(ctx, &longrunningpb.DeleteOperationRequest{
-		Name: fmt.Sprintf("projects/%s/instances/%s/databases/%s", projectID, instanceID, databaseID),
+	err := e.dbAdminCli.DropDatabase(ctx, &databasepb.DropDatabaseRequest{
+		Database: fmt.Sprintf("projects/%s/instances/%s/database/%s", projectID, instanceID, databaseID),
 	})
 	if err != nil {
 		return false, err
