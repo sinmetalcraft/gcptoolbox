@@ -9,13 +9,19 @@ import (
 
 	cloudtasks "cloud.google.com/go/cloudtasks/apiv2"
 	dataflow "cloud.google.com/go/dataflow/apiv1beta3"
+	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
+	database "cloud.google.com/go/spanner/admin/database/apiv1"
+	"cloud.google.com/go/storage"
 	cloudtasksbox "github.com/sinmetalcraft/gcpbox/cloudtasks"
+	metadatabox2 "github.com/sinmetalcraft/gcpbox/metadata"
 	metadatabox "github.com/sinmetalcraft/gcpbox/metadata/cloudrun"
 	"github.com/sinmetalcraft/gcptoolbox/bq2gcs"
 	"github.com/sinmetalcraft/gcptoolbox/dfrun"
 	dataflowbox "github.com/sinmetalcraft/gcptoolbox/dfrun/dataflow"
+	exehandler "github.com/sinmetalcraft/gcptoolbox/executioner"
 	"github.com/sinmetalcraft/gcptoolbox/handlers"
 	"github.com/sinmetalcraft/gcptoolbox/internal/slack"
+	"github.com/sinmetalcraft/gcptoolbox/spanner/executioner"
 )
 
 func Run(ctx context.Context, port string) error {
@@ -26,7 +32,48 @@ func Run(ctx context.Context, port string) error {
 		http.Handle("/bq2gcs/export", handlers.BaseHandler(&bq2gcs.ExportHandler{}))
 	}
 
-	if os.Getenv("GCPTOOLBOX_DFRUN") != "" {
+	enableDFRUN := os.Getenv("GCPTOOLBOX_DFRUN") != ""
+	enableExecutioner := os.Getenv("GCPTOOLBOX_EXECUTIONER") != ""
+	var err error
+
+	saEmail, err := metadatabox.ServiceAccountEmail()
+	if err != nil {
+		return fmt.Errorf("failed to get service account email: %v", err)
+	}
+	cloudRunURI := os.Getenv("GCPTOOLBOX_CLOUD_RUN_URI")
+	if cloudRunURI == "" {
+		return fmt.Errorf("$GCPTOOLBOX_CLOUD_RUN_URI env var not set")
+	}
+	region, err := metadatabox.Region()
+	if err != nil {
+		return fmt.Errorf("failed to get region: %v", err)
+	}
+	fmt.Printf("gcptoolbox region %s\n", region)
+	r1, err := metadatabox2.Region()
+	if err != nil {
+		return fmt.Errorf("failed to get region: %v", err)
+	}
+	fmt.Printf("gcptoolbox2 region %s\n", r1)
+	zone, err := metadatabox2.Zone()
+	if err != nil {
+		return fmt.Errorf("failed to get zone: %v", err)
+	}
+	fmt.Printf("gcptoolbox2 zone %s\n", zone)
+
+	var tasksCli *cloudtasks.Client
+	var tasksService *cloudtasksbox.Service
+	if enableDFRUN || enableExecutioner {
+		tasksCli, err = cloudtasks.NewClient(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create cloudtasks client: %v", err)
+		}
+		tasksService, err = cloudtasksbox.NewService(ctx, tasksCli, saEmail)
+		if err != nil {
+			return fmt.Errorf("failed to create cloudtasks service: %v", err)
+		}
+	}
+
+	if enableDFRUN {
 		fmt.Println("dfrun ignition")
 		templateCli, err := dataflow.NewTemplatesClient(ctx)
 		if err != nil {
@@ -39,23 +86,6 @@ func Run(ctx context.Context, port string) error {
 		classicTemplateRunner, err := dataflowbox.NewClassicTemplateRunner(ctx, templateCli, jobsCli)
 		if err != nil {
 			return fmt.Errorf("failed to create dataflowbox classic template runner: %v", err)
-		}
-		tasksCli, err := cloudtasks.NewClient(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to create cloudtasks client: %v", err)
-		}
-
-		saEmail, err := metadatabox.ServiceAccountEmail()
-		if err != nil {
-			return fmt.Errorf("failed to get service account email: %v", err)
-		}
-		tasksService, err := cloudtasksbox.NewService(ctx, tasksCli, saEmail)
-		if err != nil {
-			return fmt.Errorf("failed to create cloudtasks service: %v", err)
-		}
-		cloudRunURI := os.Getenv("GCPTOOLBOX_CLOUD_RUN_URI")
-		if cloudRunURI == "" {
-			return fmt.Errorf("$GCPTOOLBOX_CLOUD_RUN_URI env var not set")
 		}
 
 		var opts []dfrun.Option
@@ -78,6 +108,35 @@ func Run(ctx context.Context, port string) error {
 			return fmt.Errorf("failed to create dfrun handler: %v", err)
 		}
 		http.Handle("/dfrun/", handlers.BaseHandler(h))
+	}
+
+	if enableExecutioner {
+		fmt.Println("executioner ignition")
+
+		metricCli, err := monitoring.NewMetricClient(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create metric client: %v", err)
+		}
+		dbAdminCli, err := database.NewDatabaseAdminClient(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create db admin client: %v", err)
+		}
+
+		var gcsCli *storage.Client
+		iamBackupBucket := os.Getenv("GCPTOOLBOX_IAM_BACKUP_BUCKET")
+		if iamBackupBucket != "" {
+			fmt.Printf("IAM Backup Bucket is %s\n", iamBackupBucket)
+			gcsCli, err = storage.NewClient(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to create storage client: %v", err)
+			}
+		}
+		exe := executioner.NewExecutioner(ctx, metricCli, dbAdminCli, gcsCli, iamBackupBucket)
+		handler, err := exehandler.NewHandler(ctx, exe, tasksService, cloudRunURI, region)
+		if err != nil {
+			return fmt.Errorf("failed to create executioner: %v", err)
+		}
+		http.Handle("/executioner/", handlers.BaseHandler(handler))
 	}
 
 	// Start HTTP server.
